@@ -30,10 +30,13 @@ Hold the Blade keyboard in stable `static white` through the Windows Razer light
 ## Default settings
 
 - color: `255,255,255`
-- brightness: `50%`
+- brightness request: `50%`
 - implementation: `windows-stack`
 - effect id: `6`
 - reapply interval: `0`
+- note:
+  - `brightness_percent` is not yet enforced by the `windows-stack` control path
+  - static white ownership is solved, but brightness control still needs Windows-stack extension work
 
 ## Startup task
 

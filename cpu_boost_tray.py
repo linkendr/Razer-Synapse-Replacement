@@ -53,6 +53,7 @@ from System.Drawing.Drawing2D import GraphicsPath, SmoothingMode  # type: ignore
 from System.Windows.Forms import (  # type: ignore
     Application,
     ApplicationContext,
+    Control,
     ContextMenuStrip,
     MethodInvoker,
     MouseButtons,
@@ -176,12 +177,15 @@ class GpuTelemetryReader:
             for instance_name in engine_category.GetInstanceNames()
             if self.adapter_luid in str(instance_name).lower() and "engtype_3d" in str(instance_name).lower()
         ]
+        warmed_counters: list[PerformanceCounter] = []
         for counter in counters:
             try:
                 counter.NextValue()
             except Exception:
+                self._dispose_counter(counter)
                 continue
-        self.engine_counters = counters
+            warmed_counters.append(counter)
+        self.engine_counters = warmed_counters
 
     def discover_adapter(self) -> str:
         rows = self._memory_instances()
@@ -226,10 +230,10 @@ class GpuTelemetryReader:
         try:
             if not self.engine_counters:
                 self._refresh_engine_counters()
-            gpu_3d_percent = sum(float(counter.NextValue()) for counter in self.engine_counters)
+            gpu_3d_percent = sum(float(counter.NextValue()) for counter in self.engine_counters) if self.engine_counters else 0.0
         except Exception:
             self._refresh_engine_counters()
-            gpu_3d_percent = sum(float(counter.NextValue()) for counter in self.engine_counters)
+            gpu_3d_percent = sum(float(counter.NextValue()) for counter in self.engine_counters) if self.engine_counters else 0.0
 
         try:
             gpu_vram_mb = float(self.memory_counter.NextValue()) / (1024.0 * 1024.0)
@@ -379,10 +383,11 @@ class AppState:
     def control_mode(self) -> str:
         return self.config.control_mode
 
-    def set_control_mode(self, mode: str) -> None:
+    def set_control_mode(self, mode: str, *, persist: bool = True) -> None:
         self.config.control_mode = mode
-        self.config.save()
-        self.logger.log(f"Set tray control mode to {mode}.")
+        if persist:
+            self.config.save()
+            self.logger.log(f"Set tray control mode to {mode}.")
 
 
 class CpuBoostTrayApp:
@@ -399,6 +404,8 @@ class CpuBoostTrayApp:
         self.notify_icon = NotifyIcon()
         self.notify_icon.Visible = False
         self.notify_icon.Text = "CPU Boost"
+        self.ui_control = Control()
+        self.ui_control.CreateControl()
 
         self.menu = ContextMenuStrip()
         self.status_item = ToolStripMenuItem("CPU:Unknown")
@@ -481,12 +488,12 @@ class CpuBoostTrayApp:
         graphics = Graphics.FromImage(bitmap)
         graphics.Clear(Color.Transparent)
         graphics.SmoothingMode = SmoothingMode.AntiAlias
-        circle_color = Color.FromArgb(24, 160, 72) if enabled or is_auto else Color.FromArgb(178, 42, 42)
+        circle_color = Color.FromArgb(24, 160, 72) if enabled else Color.FromArgb(178, 42, 42)
         graphics.FillEllipse(SolidBrush(circle_color), RectangleF(4.0, 4.0, float(size - 8), float(size - 8)))
 
         bolt_path = GraphicsPath()
         self.add_lightning_bolt(bolt_path, 18.0, 12.0, 28.0, 36.0)
-        if enabled or is_auto:
+        if enabled:
             graphics.FillPath(SolidBrush(Color.White), bolt_path)
         else:
             graphics.DrawPath(Pen(Color.White, 4.0), bolt_path)
@@ -634,10 +641,10 @@ class CpuBoostTrayApp:
 
     def request_visual_update(self) -> None:
         try:
-            if self.menu.IsDisposed:
+            if self.ui_control.IsDisposed:
                 return
-            if self.menu.InvokeRequired:
-                self.menu.BeginInvoke(MethodInvoker(self.update_visuals))
+            if self.ui_control.InvokeRequired:
+                self.ui_control.BeginInvoke(MethodInvoker(self.update_visuals))
             else:
                 self.update_visuals()
         except Exception:
@@ -683,7 +690,14 @@ class CpuBoostTrayApp:
         power_status = SYSTEM_POWER_STATUS()
         if not ctypes.windll.kernel32.GetSystemPowerStatus(ctypes.byref(power_status)):
             raise CpuBoostTrayError("GetSystemPowerStatus failed")
-        ac_connected = power_status.ACLineStatus == 1
+        with self.state_lock:
+            prior_ac_connected = self.state.ac_connected
+        if power_status.ACLineStatus == 1:
+            ac_connected = True
+        elif power_status.ACLineStatus == 0:
+            ac_connected = False
+        else:
+            ac_connected = prior_ac_connected
         battery_saver = power_status.SystemStatusFlag == 1
         battery_percent = None if power_status.BatteryLifePercent == 255 else int(power_status.BatteryLifePercent)
         with self.state_lock:
@@ -753,8 +767,8 @@ class CpuBoostTrayApp:
 
     def manual_set(self, enabled: bool) -> None:
         try:
-            self.state.set_control_mode("manual")
             self.apply_performance_state(enabled)
+            self.state.set_control_mode("manual", persist=True)
         except Exception as exc:
             self._set_error(str(exc), log_prefix="Manual performance write failed")
         self.refresh_tick()
@@ -762,7 +776,7 @@ class CpuBoostTrayApp:
 
     def set_auto_mode(self) -> None:
         try:
-            self.state.set_control_mode("auto")
+            self.state.set_control_mode("auto", persist=True)
             self._mixed_state_since_monotonic = None
             self._clear_error()
             self.state.logger.log(
@@ -845,6 +859,7 @@ class CpuBoostTrayApp:
         try:
             now = time.monotonic()
             need_sync = False
+            first_sync = False
             with self.state_lock:
                 if (
                     self.state.current_cpu_boost is None
@@ -852,9 +867,10 @@ class CpuBoostTrayApp:
                     or now - self.state.last_state_sync_monotonic >= self.state.config.state_sync_interval_seconds
                 ):
                     need_sync = True
+                    first_sync = self.state.current_cpu_boost is None or self.state.current_gpu_boost is None
 
             if need_sync:
-                self.sync_performance_modes(force_log=False)
+                self.sync_performance_modes(force_log=first_sync)
 
             ac_connected, battery_saver, _battery_percent = self.read_system_power()
             cpu_utils = [float(value) for value in psutil.cpu_percent(interval=None, percpu=True)]
@@ -981,11 +997,11 @@ class CpuBoostTrayApp:
             self.worker_thread.join(timeout=2.0)
         self.telemetry_reader.close()
         self.notify_icon.Visible = False
+        self.ui_control.Dispose()
         self.cleanup_icons()
         self.context.ExitThread()
 
     def run(self) -> int:
-        self.sync_performance_modes(force_log=True)
         self.notify_icon.Visible = True
         self.update_visuals()
         self.worker_thread.start()

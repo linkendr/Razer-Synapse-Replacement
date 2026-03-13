@@ -250,9 +250,8 @@ class AutoFanDaemon:
 
         current_index = 0
         for idx, step in enumerate(self.config.curve):
-            if step.rpm == self.current_target_rpm:
+            if self.current_target_rpm >= step.rpm:
                 current_index = idx
-                break
 
         if target_index < current_index:
             step_down_threshold = self.config.curve[current_index].temp_c - self.config.temp_hysteresis_c
@@ -326,16 +325,20 @@ class AutoFanDaemon:
         if not self.running:
             return
 
-        temps = self.monitor.read()
-        control_temp = self._control_temp(temps)
-        target_rpm = self._target_rpm(control_temp)
-        self.logger.log(
-            f"Startup blast complete. Transitioning to curve target {target_rpm} RPM at "
-            f"control_temp={control_temp:.2f}C (cpu={temps.cpu_temp_c}, gpu={temps.gpu_temp_c}, hotspot={temps.gpu_hotspot_c})."
-        )
-        self.lower_target_pending = None
-        self.lower_target_count = 0
-        self._set_target_immediately(target_rpm, "Post-startup transition")
+        try:
+            temps = self.monitor.read()
+            control_temp = self._control_temp(temps)
+            target_rpm = self._target_rpm(control_temp)
+            self.logger.log(
+                f"Startup blast complete. Transitioning to curve target {target_rpm} RPM at "
+                f"control_temp={control_temp:.2f}C (cpu={temps.cpu_temp_c}, gpu={temps.gpu_temp_c}, hotspot={temps.gpu_hotspot_c})."
+            )
+            self.lower_target_pending = None
+            self.lower_target_count = 0
+            self._set_target_immediately(target_rpm, "Post-startup transition")
+        except Exception as exc:
+            self.logger.log(f"Startup blast handoff failed: {exc}")
+            self.logger.log(traceback.format_exc().strip())
 
     def _set_manual(self, rpm: int) -> None:
         if self.candidate is None:

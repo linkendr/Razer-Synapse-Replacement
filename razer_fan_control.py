@@ -645,7 +645,8 @@ def clamp_rpm(rpm: int, product_id: int, unsafe_unclamped: bool) -> tuple[int, i
         target = max(min(target, fan_max), fan_min)
     if target > 25500:
         raise RazerFanControlError("rpm is too large for the packet format")
-    return target, target // 100
+    normalized_target = 0 if target == 0 else (target // 100) * 100
+    return normalized_target, normalized_target // 100
 
 
 def probe_candidate(candidate: DeviceCandidate) -> dict[str, object]:
@@ -754,6 +755,17 @@ def command_set_fan(args: argparse.Namespace) -> int:
         if not power_response.is_success:
             raise RazerFanControlError(f"power write failed with status {power_response.status}")
 
+        verify_power = device.query_power()
+        verify_fan = device.query_fan(args.fan_id)
+        if (
+            not verify_power.is_success
+            or not verify_fan.is_success
+            or not decode_manual_fan(verify_power)
+            or decode_power_mode(verify_power) != power_mode
+            or decode_fan_response(verify_fan) != target_rpm
+        ):
+            raise RazerFanControlError(f"manual fan verification failed for fan {args.fan_id} target {target_rpm} RPM")
+
         print(f"Set fan {args.fan_id} to {target_rpm} RPM in manual mode using power mode {power_mode}.")
     return 0
 
@@ -775,6 +787,19 @@ def command_set_fans(args: argparse.Namespace) -> int:
         if not power_response.is_success:
             raise RazerFanControlError(f"power write failed with status {power_response.status}")
 
+        verify_power = device.query_power()
+        verify_fans = {fan_id: device.query_fan(fan_id) for fan_id, _rpm in fan_values}
+        if (
+            not verify_power.is_success
+            or not decode_manual_fan(verify_power)
+            or decode_power_mode(verify_power) != power_mode
+        ):
+            raise RazerFanControlError("manual fan verification failed after dual-fan write")
+        for fan_id, rpm in fan_values:
+            verify_fan = verify_fans[fan_id]
+            if not verify_fan.is_success or decode_fan_response(verify_fan) != rpm:
+                raise RazerFanControlError(f"manual fan verification failed for fan {fan_id} target {rpm} RPM")
+
     formatted = ", ".join(f"fan {fan_id}={rpm} RPM" for fan_id, rpm in fan_values)
     print(f"Set {formatted} in manual mode using power mode {power_mode}.")
     return 0
@@ -787,6 +812,13 @@ def command_auto(args: argparse.Namespace) -> int:
         response = device.set_power(power_mode, auto_fan=True)
         if not response.is_success:
             raise RazerFanControlError(f"auto mode write failed with status {response.status}")
+        verify_power = device.query_power()
+        if (
+            not verify_power.is_success
+            or decode_manual_fan(verify_power)
+            or decode_power_mode(verify_power) != power_mode
+        ):
+            raise RazerFanControlError("automatic mode verification failed")
     print(f"Returned fan control to automatic mode using power mode {power_mode}.")
     return 0
 

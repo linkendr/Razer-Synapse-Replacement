@@ -13,7 +13,7 @@ The keyboard is now controllable through the Windows Razer lighting stack.
 The currently solved behavior is:
 
 - stable `static white`
-- `50%` brightness by default
+- `50%` brightness request by default
 - no old app-picker popup
 - no visible 5-second reinjection loop
 - the keyboard remains white as long as the background Windows-stack session stays alive
@@ -29,6 +29,11 @@ The correct Windows path is:
 3. apply the captured Synapse ownership/bootstrap sequence
 4. apply engine `effect_id 6` for `static`
 5. keep the process alive to hold ownership
+
+Brightness note:
+
+- the solved Windows-stack path currently holds static color ownership correctly
+- `brightness_percent` is not yet enforced through that path
 
 The important local files are:
 
