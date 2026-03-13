@@ -1,0 +1,44 @@
+{
+  "poll_interval_seconds": 5,
+  "cooldown_samples": 4,
+  "temp_hysteresis_c": 3,
+  "startup_blast_seconds": 30,
+  "startup_blast_rpm": 5300,
+  "manual_power_mode": "balanced",
+  "auto_power_mode": "balanced",
+  "restore_auto_on_exit": true,
+  "unsafe_unclamped": false,
+  "log_path": "auto-fan-daemon.log",
+  "vendor_id": 5426,
+  "product_id": 624,
+  "curve": [
+    {
+      "temp_c": 0,
+      "rpm": 0
+    },
+    {
+      "temp_c": 70,
+      "rpm": 3100
+    },
+    {
+      "temp_c": 75,
+      "rpm": 3300
+    },
+    {
+      "temp_c": 80,
+      "rpm": 3700
+    },
+    {
+      "temp_c": 84,
+      "rpm": 4200
+    },
+    {
+      "temp_c": 87,
+      "rpm": 4700
+    },
+    {
+      "temp_c": 90,
+      "rpm": 5300
+    }
+  ]
+}

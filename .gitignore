@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+
+*.log
+*-crash.log
+
+backup/
+synapse-state/
+vendor/
+
+status.md
+performance-review.md
+cpu-boost-tray-review-findings.md
+full-stack-verification-2026-03-13.md
