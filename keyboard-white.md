@@ -2,48 +2,50 @@
 
 ## Purpose
 
-Attempt a simple one-shot keyboard lighting apply without Synapse.
+Hold the Blade keyboard in stable `static white` through the Windows Razer lighting stack.
 
 ## Components
 
 - `keyboard_white_daemon.py`
+- `keyboard_windows_stack.py`
 - `keyboard-white-config.json`
 - `install_keyboard_white_startup.ps1`
 - `remove_keyboard_white_startup.ps1`
 - `start_keyboard_white_now.ps1`
 - `stop_keyboard_white_now.ps1`
 
-## Behavior
+## Current behavior
 
-- sends a solid RGB color write to all 6 keyboard rows
-- sends a keyboard brightness write
-- can reapply the requested color periodically if you explicitly enable that in config
-- the default startup config applies once and exits instead of staying resident
-- startup runs through a hidden scheduled task
-
-## Important limitation
-
-- keyboard lighting replacement is not considered fully solved on this Blade 14 2021
-- color and brightness writes can work, but the firmware effect state can still override them
-- startup should be treated as a best-effort one-shot apply, not a guaranteed static lighting replacement
-- lid logo control is also not confirmed in this project
+- the old direct-HID keyboard path is no longer the preferred path
+- the working path is the Windows Razer lighting stack through:
+  - `lighting_driver_v1.9.11.0.dll`
+  - `RzChromaSDKProxy64.dll`
+  - `RzLightingEngineApi_v4.0.54.0.dll`
+- the current model is:
+  - take ownership once
+  - apply static white
+  - keep the process alive
+- the intended UX is not a visible periodic reinjection loop
 
 ## Default settings
 
 - color: `255,255,255`
 - brightness: `50%`
-- reapply interval: `0` seconds, which means apply once and exit
+- implementation: `windows-stack`
+- effect id: `6`
+- reapply interval: `0`
 
 ## Startup task
 
 - task name: `RazerKeyboardWhite`
-- launch path: `pythonw.exe keyboard_white_daemon.py --config keyboard-white-config.json --once`
 - execution time limit: `PT0S`
+- expected state after launch: `Running`
 
 ## Files on disk
 
 - activity log: `keyboard-white.log`
 - crash log: `keyboard-white-crash.log`
+- full durable guide: `keyboard-control-playbook.md`
 
 ## Commands
 
@@ -70,3 +72,17 @@ Stop now:
 ```powershell
 .\stop_keyboard_white_now.ps1
 ```
+
+## Reverse-engineering state
+
+Current keyboard understanding:
+
+- interface index `2` is the relevant Blade keyboard interface
+- Synapse capture and logs proved the Windows-stack path was the right model
+- static white maps to engine `effect_id 6`
+- the important handoff is now reconstructed locally
+- the final missing issue was ownership lifetime, not basic static color payload
+
+For the full investigation history and the guide for future effects, see:
+
+- `keyboard-control-playbook.md`

@@ -1,0 +1,30 @@
+[2026/03/13 11:23:51.456] info: RzLightingEngine.createLightingDeviceEx(rzDevice25LedMatrix, 624, {00000000-0000-0000-FFFF-FFFFFFFFFFFF})) res:1
+[2026/03/13 11:23:51.458] info: lighting-engine.setDeviceHandle() productId:624, instanceId:{00000000-0000-0000-FFFF-FFFFFFFFFFFF}, deviceHandle:1
+[2026/03/13 11:23:51.458] info: lighting-engine getDeviceRegionData(624-{00000000-0000-0000-FFFF-FFFFFFFFFFFF}), callingFn:setDeviceHandle(), ret: {"productId":624,"instanceId":"{00000000-0000-0000-FFFF-FFFFFFFFFFFF}","engineHandle":1}
+[2026/03/13 11:23:51.458] info: lighting-engine.setDeviceRegionData(): productId:624, instanceId:{00000000-0000-0000-FFFF-FFFFFFFFFFFF}, data:{"deviceHandle":1} data: ==> {"deviceHandle":1}
+[2026/03/13 11:23:51.458] info: lighting-engine.setDeviceRegionData() before LIGHTING_VARS.devicesRegion:,  {"624-{00000000-0000-0000-FFFF-FFFFFFFFFFFF}":{"productId":624,"instanceId":"{00000000-0000-0000-FFFF-FFFFFFFFFFFF}","engineHandle":1}}  ==><==
+[2026/03/13 11:23:51.458] info: lighting-engine.setDeviceRegionData() after LIGHTING_VARS.devicesRegion:,  {"624-{00000000-0000-0000-FFFF-FFFFFFFFFFFF}":{"productId":624,"instanceId":"{00000000-0000-0000-FFFF-FFFFFFFFFFFF}","engineHandle":1,"deviceHandle":1}}  ==><==
+[2026/03/13 11:23:51.458] info: rzDevice-LightingEngine.AddDevice(engine_handle:1, device_handle:1, region:0, orientation:0) ==>
+[2026/03/13 11:23:51.459] info: rzDevice-LightingEngine.RzLightingAPI() Action:17:LightingEngine_AddDevice, {"Action":17,"engine_handle":1,"device_handle":1,"region":0,"orientation":0}, res:"{\"Status\":0}"
+[2026/03/13 11:23:51.460] info: rzDevice-LightingEngine.AddDevice(engine_handle:1, device_handle:1, region:0, orientation:0) res.status:0 ==><==
+[2026/03/13 11:23:51.460] info: RzLightingEngine.addDevice({"engineHandle":1,"deviceHandle":1,"region":0,"orientation":0,"appName":""}) = 0
+[2026/03/13 11:23:51.460] info: lighting-engine.setDeviceRegionData(): productId:624, instanceId:{00000000-0000-0000-FFFF-FFFFFFFFFFFF}, data:{"deviceHandles":[{"engineHandle":1,"deviceHandle":1}]} data: ==> {"deviceHandles":[{"engineHandle":1,"deviceHandle":1}]}
+[2026/03/13 11:23:51.460] info: lighting-engine.setDeviceRegionData() before LIGHTING_VARS.devicesRegion:,  {"624-{00000000-0000-0000-FFFF-FFFFFFFFFFFF}":{"productId":624,"instanceId":"{00000000-0000-0000-FFFF-FFFFFFFFFFFF}","engineHandle":1,"deviceHandle":1}}  ==><==
+[2026/03/13 11:23:51.460] info: lighting-engine.setDeviceRegionData() after LIGHTING_VARS.devicesRegion:,  {"624-{00000000-0000-0000-FFFF-FFFFFFFFFFFF}":{"productId":624,"instanceId":"{00000000-0000-0000-FFFF-FFFFFFFFFFFF}","engineHandle":1,"deviceHandle":1,"deviceHandles":[{"engineHandle":1,"deviceHandle":1}]}}  ==><==
+[2026/03/13 11:23:51.461] info: lighting-engine ==><== addDeviceHandleToEngine()
+[2026/03/13 11:23:51.461] info: lighting-engine.createDeviceEffectHandle() productId:624, instanceId:{00000000-0000-0000-FFFF-FFFFFFFFFFFF}, engineHandle:1, data:{"productId":624,"instanceId":"{00000000-0000-0000-FFFF-FFFFFFFFFFFF}","regionId":0,"effectId":6,"params":{"color":"0xffffff"}}, key:effectHandles ==>
+[2026/03/13 11:23:51.461] info: lighting-engine getDeviceRegionData(624-{00000000-0000-0000-FFFF-FFFFFFFFFFFF}), callingFn:createDeviceEffectHandle(), ret: {"productId":624,"instanceId":"{00000000-0000-0000-FFFF-FFFFFFFFFFFF}","engineHandle":1,"deviceHandle":1,"deviceHandles":[{"engineHandle":1,"deviceHandle":1}]}
+[2026/03/13 11:23:51.461] info: lighting-engine.createDeviceEffectHandle(), use key:effectHandles effectHandle found:undefined
+[2026/03/13 11:23:51.461] info: getEffectParams(effectId:6, param:{"color":"0xffffff"}), res:{"color":"0xffffff"}
+[2026/03/13 11:23:51.461] info: 🤢🤢🤢🤢 params {"Color":"0xffffff"}
+[2026/03/13 11:23:51.462] info: rzDevice-LightingEngine.AddEffect(engine_handle:1 effect:6, effectParam:{"Color":"0xffffff"}) ==>
+[2026/03/13 11:23:51.462] info: rzDevice-LightingEngine AddEffect() after change: engine_handle:1 effect:6, effectParam:{"Color":"0xffffff"}, param:{"Color":16777215}
+[2026/03/13 11:23:51.462] info: rzDevice-LightingEngine.RzLightingAPI() Action:33:LightingEngine_AddEffect, {"Action":33,"engine_handle":1,"effect":6,"EffectParam":{"Color":16777215}}, res:"{\"Status\":0,\"effect_handle\":1}"
+[2026/03/13 11:23:51.463] info: rzDevice-LightingEngine.AddEffect(engine_handle:1 effect:6, effectParam:{"Color":"0xffffff"}) res:1 ==><==
+[2026/03/13 11:23:51.463] info: RzLightingEngine.addEffect({"engineHandle":1,"effectId":6,"effectParams":{"color":"0xffffff"},"params":{"Color":"0xffffff"},"appName":""}) = 1
+[2026/03/13 11:23:51.463] info: lighting-engine.setDeviceRegionData(): productId:624, instanceId:{00000000-0000-0000-FFFF-FFFFFFFFFFFF}, data:{"effectHandles":[{"regionId":0,"effectHandle":1}]} data: ==> {"effectHandles":[{"regionId":0,"effectHandle":1}]}
+[2026/03/13 11:23:51.463] info: lighting-engine.setDeviceRegionData() before LIGHTING_VARS.devicesRegion:,  {"624-{00000000-0000-0000-FFFF-FFFFFFFFFFFF}":{"productId":624,"instanceId":"{00000000-0000-0000-FFFF-FFFFFFFFFFFF}","engineHandle":1,"deviceHandle":1,"deviceHandles":[{"engineHandle":1,"deviceHandle":1}]}}  ==><==
+[2026/03/13 11:23:51.463] info: lighting-engine.setDeviceRegionData() after LIGHTING_VARS.devicesRegion:,  {"624-{00000000-0000-0000-FFFF-FFFFFFFFFFFF}":{"productId":624,"instanceId":"{00000000-0000-0000-FFFF-FFFFFFFFFFFF}","engineHandle":1,"deviceHandle":1,"deviceHandles":[{"engineHandle":1,"deviceHandle":1}],"effectHandles":[{"regionId":0,"effectHandle":1}]}}  ==><==
+[2026/03/13 11:23:51.463] info: lighting-engine.createDeviceEffectHandle() ==><==
+[2026/03/13 11:23:51.464] info: setMaskToEffect() ==> productId:624, instanceId:{00000000-0000-0000-FFFF-FFFFFFFFFFFF}, engineHandle:1, effectHandle:1, data:{"productId":624,"instanceId":"{00000000-0000-0000-FFFF-FFFFFFFFFFFF}","regionId":0,"effectId":6,"params":{"color":"0xffffff"}}
+[2026/03/13 11:23:51.464] info: setMaskToEffect() ==><== productId:624, instanceId:{00000000-0000-0000-FFFF-FFFFFFFFFFFF}, regionId=0

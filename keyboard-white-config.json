@@ -7,6 +7,8 @@
     255,
     255
   ],
+  "implementation": "windows-stack",
+  "effect_id": 6,
   "reapply_interval_seconds": 0,
   "log_path": "keyboard-white.log"
 }

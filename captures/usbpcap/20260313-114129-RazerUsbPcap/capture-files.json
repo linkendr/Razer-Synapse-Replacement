@@ -1,0 +1,27 @@
+﻿[
+    {
+        "Name":  "README.txt",
+        "Length":  320,
+        "LastWriteTime":  "\/Date(1773398498265)\/"
+    },
+    {
+        "Name":  "usbpcap-1.host.ps1",
+        "Length":  185,
+        "LastWriteTime":  "\/Date(1773398490007)\/"
+    },
+    {
+        "Name":  "usbpcap-1.pcap",
+        "Length":  62748,
+        "LastWriteTime":  "\/Date(1773398691514)\/"
+    },
+    {
+        "Name":  "usbpcap-2.host.ps1",
+        "Length":  185,
+        "LastWriteTime":  "\/Date(1773398494152)\/"
+    },
+    {
+        "Name":  "usbpcap-2.pcap",
+        "Length":  1973292,
+        "LastWriteTime":  "\/Date(1773398693275)\/"
+    }
+]

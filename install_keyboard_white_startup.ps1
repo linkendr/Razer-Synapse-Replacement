@@ -4,7 +4,7 @@ $script = Join-Path $root 'keyboard_white_daemon.py'
 $config = Join-Path $root 'keyboard-white-config.json'
 $taskName = 'RazerKeyboardWhite'
 $userId = "$env:USERDOMAIN\$env:USERNAME"
-$argument = '"' + $script + '" --config "' + $config + '" --once'
+$argument = '"' + $script + '" --config "' + $config + '"'
 
 Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
 

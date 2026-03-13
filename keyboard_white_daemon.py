@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+import keyboard_windows_stack as kws
 import razer_fan_control as rfc
 
 
@@ -32,6 +33,8 @@ class KeyboardWhiteConfig:
     brightness_percent: int
     rgb: tuple[int, int, int]
     reapply_interval_seconds: float
+    implementation: str
+    effect_id: int
     log_path: Path
 
     @classmethod
@@ -51,6 +54,8 @@ class KeyboardWhiteConfig:
             brightness_percent=int(data.get("brightness_percent", 100)),
             rgb=(rgb[0], rgb[1], rgb[2]),
             reapply_interval_seconds=float(data.get("reapply_interval_seconds", 60.0)),
+            implementation=str(data.get("implementation", "windows-stack")),
+            effect_id=int(data.get("effect_id", 8)),
             log_path=log_path,
         )
 
@@ -104,10 +109,22 @@ def main(argv: list[str] | None = None) -> int:
     try:
         logger.log(
             f"Keyboard white daemon started rgb={config.rgb} brightness={config.brightness_percent}% "
-            f"interval={config.reapply_interval_seconds}s."
+            f"interval={config.reapply_interval_seconds}s implementation={config.implementation} effect_id={config.effect_id}."
         )
+        session = None
+        if config.implementation == "windows-stack":
+            color_value = (config.rgb[0] << 16) | (config.rgb[1] << 8) | config.rgb[2]
+            session = kws.KeyboardWindowsStackSession(
+                kws.KeyboardWindowsStackConfig(
+                    color_value=color_value,
+                    effect_id=config.effect_id,
+                )
+            )
         while True:
-            rfc.set_keyboard_solid(config.vendor_id, config.product_id, config.rgb, config.brightness_percent)
+            if config.implementation == "windows-stack":
+                session.apply_static_white()
+            else:
+                rfc.set_keyboard_solid(config.vendor_id, config.product_id, config.rgb, config.brightness_percent)
             logger.log(
                 f"Applied keyboard RGB({config.rgb[0]}, {config.rgb[1]}, {config.rgb[2]}) "
                 f"at {config.brightness_percent}% brightness."
@@ -115,11 +132,20 @@ def main(argv: list[str] | None = None) -> int:
 
             if args.once:
                 break
-            if config.reapply_interval_seconds <= 0:
+            now = time.time()
+            if deadline is not None and now >= deadline:
                 break
-            if deadline is not None and time.time() >= deadline:
+            if config.reapply_interval_seconds <= 0:
+                if deadline is None:
+                    time.sleep(3600)
+                    continue
+                sleep_seconds = max(0.0, deadline - now)
+                if sleep_seconds > 0:
+                    time.sleep(sleep_seconds)
                 break
             time.sleep(config.reapply_interval_seconds)
+        if session is not None:
+            session.close()
     finally:
         guard.close()
 

@@ -1,0 +1,17 @@
+﻿{
+    "stopped_tasks":  [
+
+                      ],
+    "killed_processes":  [
+                             {
+                                 "path":  "C:\\Razer Synapse Replacement\\.venv\\Scripts\\pythonw.exe",
+                                 "pid":  2104,
+                                 "process_name":  "pythonw"
+                             },
+                             {
+                                 "path":  "C:\\Razer Synapse Replacement\\.venv\\Scripts\\pythonw.exe",
+                                 "pid":  2280,
+                                 "process_name":  "pythonw"
+                             }
+                         ]
+}

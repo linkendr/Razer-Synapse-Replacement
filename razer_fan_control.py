@@ -19,7 +19,6 @@ FEATURE_REPORT_LENGTH = REPORT_LENGTH + 1
 RAZER_VENDOR_ID = 0x1532
 DEFAULT_PRODUCT_ID = 0x0270
 DEFAULT_TRANSACTION_ID = 0x1F
-BLADE_TRANSACTION_ID = 0xFF
 
 GET_DIRECTION = 0x01
 SET_DIRECTION = 0x00
@@ -336,7 +335,7 @@ class RazerDevice:
 
     @property
     def keyboard_transaction_id(self) -> int:
-        return BLADE_TRANSACTION_ID
+        return DEFAULT_TRANSACTION_ID
 
     def transact(self, packet: bytes, delay_seconds: float = 0.20) -> PacketResponse:
         with NamedMutex(RAZER_WRITE_MUTEX):
@@ -374,7 +373,7 @@ class RazerDevice:
         return self.transact(packet)
 
     def set_keyboard_brightness_raw(self, brightness_raw: int) -> PacketResponse:
-        packet = build_packet(0x0E, 0x04, SET_DIRECTION, [0x01, brightness_raw], data_size=0x02, transaction_id=self.keyboard_transaction_id)
+        packet = build_packet(0x0E, 0x04, SET_DIRECTION, [0x01, brightness_raw, 0x00], data_size=0x03, transaction_id=self.keyboard_transaction_id)
         return self.transact(packet)
 
     def set_keyboard_brightness_legacy_raw(self, brightness_raw: int) -> PacketResponse:
@@ -386,18 +385,23 @@ class RazerDevice:
             raise RazerFanControlError("row_id must be between 0 and 5")
 
         r, g, b = rgb
-        args = bytearray(70)
+        # Match the Linux librazerblade/razer-laptop-control row layout:
+        # ff <row> 00 0f 00 00 00 + 15 RGB triplets.
+        args = bytearray(52)
         args[0] = 0xFF
         args[1] = row_id
         args[2] = 0x00
-        args[3] = 0x0E
+        args[3] = 0x0F
+        args[4] = 0x00
+        args[5] = 0x00
+        args[6] = 0x00
         for idx in range(15):
-            offset = 4 + (idx * 3)
+            offset = 7 + (idx * 3)
             args[offset] = r
             args[offset + 1] = g
             args[offset + 2] = b
 
-        packet = build_packet(0x03, 0x0B, SET_DIRECTION, args[:0x46], data_size=0x46, transaction_id=self.keyboard_transaction_id)
+        packet = build_packet(0x03, 0x0B, SET_DIRECTION, args, data_size=0x34, transaction_id=self.keyboard_transaction_id)
         return self.transact(packet)
 
     def apply_chroma(self) -> PacketResponse:
@@ -490,6 +494,8 @@ def set_keyboard_solid(vendor_id: int, product_id: int, rgb: tuple[int, int, int
     brightness_raw = brightness_percent_to_raw(brightness_percent)
 
     with RazerDevice(candidate) as device:
+        # Prefer the Linux/librazerblade brightness path first, then fall back
+        # to the Synapse-captured legacy packet family.
         response = device.set_keyboard_brightness_raw(brightness_raw)
         if not response.is_success:
             response = device.set_keyboard_brightness_legacy_raw(brightness_raw)
@@ -500,14 +506,14 @@ def set_keyboard_solid(vendor_id: int, product_id: int, rgb: tuple[int, int, int
         if not response.is_success:
             raise RazerFanControlError(f"logo state write failed with status {response.status}")
 
-        response = device.apply_chroma()
-        if not response.is_success:
-            raise RazerFanControlError(f"keyboard custom-mode write failed with status {response.status}")
-
         for row_id in range(6):
             response = device.send_keyboard_row(row_id, rgb)
             if not response.is_success:
                 raise RazerFanControlError(f"keyboard row {row_id} write failed with status {response.status}")
+
+        response = device.apply_chroma()
+        if not response.is_success:
+            raise RazerFanControlError(f"keyboard final apply failed with status {response.status}")
 
 
 def query_boost_mode(vendor_id: int, product_id: int, boost_id: int) -> int:

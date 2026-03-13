@@ -1,0 +1,42 @@
+﻿[
+    {
+        "Name":  "markers.jsonl",
+        "Length":  154,
+        "LastWriteTime":  "\/Date(1773399752554)\/"
+    },
+    {
+        "Name":  "quiesce-state.json",
+        "Length":  120,
+        "LastWriteTime":  "\/Date(1773399716056)\/"
+    },
+    {
+        "Name":  "README.txt",
+        "Length":  495,
+        "LastWriteTime":  "\/Date(1773399726352)\/"
+    },
+    {
+        "Name":  "usbpcap-1.host.ps1",
+        "Length":  185,
+        "LastWriteTime":  "\/Date(1773399718130)\/"
+    },
+    {
+        "Name":  "usbpcap-1.pcap",
+        "Length":  233658,
+        "LastWriteTime":  "\/Date(1773399746521)\/"
+    },
+    {
+        "Name":  "usbpcap-1.razer-addresses.txt",
+        "Length":  3,
+        "LastWriteTime":  "\/Date(1773399752746)\/"
+    },
+    {
+        "Name":  "usbpcap-2.host.ps1",
+        "Length":  185,
+        "LastWriteTime":  "\/Date(1773399722249)\/"
+    },
+    {
+        "Name":  "usbpcap-2.pcap",
+        "Length":  1488857,
+        "LastWriteTime":  "\/Date(1773399745317)\/"
+    }
+]

@@ -1,0 +1,14 @@
+{
+    "vendor_id":  5426,
+    "product_id":  624,
+    "brightness_percent":  50,
+    "rgb":  [
+                255,
+                255,
+                255
+            ],
+    "implementation":  "windows-stack",
+    "effect_id":  7,
+    "reapply_interval_seconds":  5,
+    "log_path":  "keyboard-white.log"
+}

@@ -11,6 +11,9 @@ Custom controller workspace for a Razer Blade 14 2021.
 - `cpu-boost-tray-config.json`: tray behavior and thresholds
 - `keyboard_white_daemon.py`: keyboard-lighting helper
 - `keyboard-white-config.json`: keyboard color, brightness, and reapply settings
+- `keyboard-control-playbook.md`: durable keyboard reverse-engineering and extension guide
+- `capture_razer_hid_trace.ps1`: ETW-based USB/HID capture helper
+- `capture_razer_usbpcap.ps1`: payload-level USBPcap capture helper
 - `install_*.ps1`: startup task installers
 - `start_*.ps1` / `stop_*.ps1`: local launch helpers
 - `research.md`: reverse-engineering and implementation notes
@@ -19,6 +22,10 @@ Custom controller workspace for a Razer Blade 14 2021.
 - `auto-fan-daemon.md`: daemon behavior and operations
 - `cpu-boost-tray.md`: tray behavior and operations
 - `keyboard-white.md`: keyboard helper behavior and limitations
+- `keyboard-control-playbook.md`: full keyboard control findings, solved path, and future effect-work guide
+- `keyboard-hid-capture.md`: capture workflow for Synapse USB/HID analysis
+- `keyboard-synapse-capture-findings.md`: current packet-level findings from Synapse captures
+- `keyboard-windows-control-path-findings.md`: Windows-side control-path findings for keyboard lighting (`RZCONTROL`, `razerwdl`, lamp-array, lighting driver)
 - `synapse-disable.md`: Synapse disable workflow notes
 - `SECURITY-REVIEW.md`: repo-scope and publication notes
 
@@ -128,6 +135,24 @@ Install the keyboard helper at logon:
 .\install_keyboard_white_startup.ps1
 ```
 
+Start a payload capture for Synapse keyboard actions:
+
+```powershell
+.\capture_razer_usbpcap.ps1 start -QuiesceProjectProcesses
+```
+
+Mark a specific Synapse action during capture:
+
+```powershell
+.\capture_razer_usbpcap.ps1 mark -Label "brightness off"
+```
+
+Stop the payload capture and export Razer-only summaries:
+
+```powershell
+.\capture_razer_usbpcap.ps1 stop
+```
+
 ## Notes
 
 - The working control interface on this model uses the `MI_02` HID interface.
@@ -137,5 +162,16 @@ Install the keyboard helper at logon:
 - The CPU boost tray drives both CPU boost and GPU high/balanced mode from the notification area.
 - Tray hardware detection remains poll-based, but tray UI updates are driven by state changes instead of a periodic UI timer.
 - Startup uses hidden scheduled tasks and `pythonw.exe`, so tray and fan startup should be background-only.
-- Keyboard lighting replacement is still best-effort only on this Blade.
+- Keyboard static-white lighting is now working through the Windows stack.
+- Synapse is currently reinstalled only for keyboard packet capture and reverse engineering.
+- The USBPcap workflow is now working and has already isolated real Synapse brightness packets for this Blade.
+- newer Windows-side findings now point to additional control-path work beyond raw HID:
+  - openable `RZCONTROL` device interface
+  - `RazerDynamicLighting`
+  - `razerwdl.exe`
+  - `lighting_driver_v1.9.11.0.dll`
+  - `RzLightingEngineApi_v4.0.54.0.dll`
+  - `rz_lamp_array_v1.0.46.0.dll`
+- keyboard reverse engineering is now on a working Windows-stack path that can hold static white while resident
+- the main remaining keyboard work is extending the same path to more effects and preserving the required DLLs before uninstalling Synapse
 - The fan daemon may still show first-pass manual verification failures before recovering on retry/revalidation.

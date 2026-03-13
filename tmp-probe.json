@@ -1,0 +1,99 @@
+﻿[
+  {
+    "path": "\\\\?\\HID#VID_1532&PID_0270&MI_02#8&3988621d&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}",
+    "interface_number": 2,
+    "usage_page": 1,
+    "usage": 2,
+    "product_id": "0x0270",
+    "vendor_id": "0x1532",
+    "product_string": "Razer Blade",
+    "manufacturer_string": "Razer",
+    "query_success": true,
+    "response_status": 2,
+    "fan_rpm": 3700
+  },
+  {
+    "path": "\\\\?\\HID#VID_1532&PID_0270&MI_00#8&7938e51&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}\\KBD",
+    "interface_number": 0,
+    "usage_page": 1,
+    "usage": 6,
+    "product_id": "0x0270",
+    "vendor_id": "0x1532",
+    "product_string": "Razer Blade",
+    "manufacturer_string": "Razer",
+    "query_success": false,
+    "error": "send_feature_report failed on \\\\?\\HID#VID_1532&PID_0270&MI_00#8&7938e51&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}\\KBD"
+  },
+  {
+    "path": "\\\\?\\HID#VID_1532&PID_0270&MI_01&Col04#8&21c4d5d8&0&0003#{4d1e55b2-f16f-11cf-88cb-001111000030}",
+    "interface_number": 1,
+    "usage_page": 1,
+    "usage": 0,
+    "product_id": "0x0270",
+    "vendor_id": "0x1532",
+    "product_string": "Razer Blade",
+    "manufacturer_string": "Razer",
+    "query_success": false,
+    "error": "send_feature_report failed on \\\\?\\HID#VID_1532&PID_0270&MI_01&Col04#8&21c4d5d8&0&0003#{4d1e55b2-f16f-11cf-88cb-001111000030}"
+  },
+  {
+    "path": "\\\\?\\HID#VID_1532&PID_0270&MI_01&Col05#8&21c4d5d8&0&0004#{4d1e55b2-f16f-11cf-88cb-001111000030}",
+    "interface_number": 1,
+    "usage_page": 1,
+    "usage": 0,
+    "product_id": "0x0270",
+    "vendor_id": "0x1532",
+    "product_string": "Razer Blade",
+    "manufacturer_string": "Razer",
+    "query_success": false,
+    "error": "send_feature_report failed on \\\\?\\HID#VID_1532&PID_0270&MI_01&Col05#8&21c4d5d8&0&0004#{4d1e55b2-f16f-11cf-88cb-001111000030}"
+  },
+  {
+    "path": "\\\\?\\HID#VID_1532&PID_0270&MI_01&Col01#8&21c4d5d8&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}\\KBD",
+    "interface_number": 1,
+    "usage_page": 1,
+    "usage": 6,
+    "product_id": "0x0270",
+    "vendor_id": "0x1532",
+    "product_string": "Razer Blade",
+    "manufacturer_string": "Razer",
+    "query_success": false,
+    "error": "send_feature_report failed on \\\\?\\HID#VID_1532&PID_0270&MI_01&Col01#8&21c4d5d8&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}\\KBD"
+  },
+  {
+    "path": "\\\\?\\HID#VID_1532&PID_0270&MI_01&Col03#8&21c4d5d8&0&0002#{4d1e55b2-f16f-11cf-88cb-001111000030}",
+    "interface_number": 1,
+    "usage_page": 1,
+    "usage": 128,
+    "product_id": "0x0270",
+    "vendor_id": "0x1532",
+    "product_string": "Razer Blade",
+    "manufacturer_string": "Razer",
+    "query_success": false,
+    "error": "send_feature_report failed on \\\\?\\HID#VID_1532&PID_0270&MI_01&Col03#8&21c4d5d8&0&0002#{4d1e55b2-f16f-11cf-88cb-001111000030}"
+  },
+  {
+    "path": "\\\\?\\HID#VID_1532&PID_0270&MI_00&Col03#9&2fa0d584&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}",
+    "interface_number": -1,
+    "usage_page": 12,
+    "usage": 1,
+    "product_id": "0x0270",
+    "vendor_id": "0x1532",
+    "product_string": "",
+    "manufacturer_string": "",
+    "query_success": false,
+    "error": "send_feature_report failed on \\\\?\\HID#VID_1532&PID_0270&MI_00&Col03#9&2fa0d584&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}"
+  },
+  {
+    "path": "\\\\?\\HID#VID_1532&PID_0270&MI_01&Col02#8&21c4d5d8&0&0001#{4d1e55b2-f16f-11cf-88cb-001111000030}",
+    "interface_number": 1,
+    "usage_page": 12,
+    "usage": 1,
+    "product_id": "0x0270",
+    "vendor_id": "0x1532",
+    "product_string": "Razer Blade",
+    "manufacturer_string": "Razer",
+    "query_success": false,
+    "error": "send_feature_report failed on \\\\?\\HID#VID_1532&PID_0270&MI_01&Col02#8&21c4d5d8&0&0001#{4d1e55b2-f16f-11cf-88cb-001111000030}"
+  }
+]
