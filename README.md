@@ -11,6 +11,7 @@ Custom controller workspace for a Razer Blade 14 2021.
 - `cpu-boost-tray-config.json`: tray behavior and thresholds
 - `keyboard_white_daemon.py`: keyboard-lighting helper
 - `keyboard-white-config.json`: keyboard color, brightness, and reapply settings
+- `refresh_keyboard_white_now.ps1`: restart helper for the keyboard hold
 - `keyboard-control-playbook.md`: durable keyboard reverse-engineering and extension guide
 - `capture_razer_hid_trace.ps1`: ETW-based USB/HID capture helper
 - `capture_razer_usbpcap.ps1`: payload-level USBPcap capture helper
@@ -133,6 +134,12 @@ Install the keyboard helper at logon:
 
 ```powershell
 .\install_keyboard_white_startup.ps1
+```
+
+Install keyboard maintenance refresh:
+
+```powershell
+.\install_keyboard_white_maintenance.ps1
 ```
 
 Start a payload capture for Synapse keyboard actions:

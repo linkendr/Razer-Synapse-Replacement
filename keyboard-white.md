@@ -11,8 +11,11 @@ Hold the Blade keyboard in stable `static white` through the Windows Razer light
 - `keyboard-white-config.json`
 - `install_keyboard_white_startup.ps1`
 - `remove_keyboard_white_startup.ps1`
+- `install_keyboard_white_maintenance.ps1`
+- `remove_keyboard_white_maintenance.ps1`
 - `start_keyboard_white_now.ps1`
 - `stop_keyboard_white_now.ps1`
+- `refresh_keyboard_white_now.ps1`
 
 ## Current behavior
 
@@ -44,6 +47,14 @@ Hold the Blade keyboard in stable `static white` through the Windows Razer light
 - execution time limit: `PT0S`
 - expected state after launch: `Running`
 
+## Maintenance task
+
+- task name: `RazerKeyboardWhiteRefresh`
+- purpose:
+  - restart the known-good keyboard daemon on a long cadence without touching the lighting sequence itself
+- cadence:
+  - every `6` hours
+
 ## Files on disk
 
 - activity log: `keyboard-white.log`
@@ -70,10 +81,28 @@ Start now:
 .\start_keyboard_white_now.ps1
 ```
 
+Refresh now:
+
+```powershell
+.\refresh_keyboard_white_now.ps1
+```
+
 Stop now:
 
 ```powershell
 .\stop_keyboard_white_now.ps1
+```
+
+Install maintenance:
+
+```powershell
+.\install_keyboard_white_maintenance.ps1
+```
+
+Remove maintenance:
+
+```powershell
+.\remove_keyboard_white_maintenance.ps1
 ```
 
 ## Reverse-engineering state
