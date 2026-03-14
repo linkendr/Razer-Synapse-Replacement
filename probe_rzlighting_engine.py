@@ -10,9 +10,7 @@ from pathlib import Path
 
 
 PROJECT_DIR = Path(__file__).resolve().parent
-ENGINE_DLL = Path(
-    r"C:\Users\Administrator\AppData\Local\Razer\RazerAppEngine\User Data\Apps\Common\RzLightingEngineApi_v4.0.54.0.dll"
-)
+ENGINE_DLL = PROJECT_DIR / "vendor" / "razer-runtime" / "common" / "RzLightingEngineApi_v4.0.54.0.dll"
 DEFAULT_LED_CONFIG = PROJECT_DIR / "captures" / "lighting-engine" / "blade-14-2021-led-config.json"
 
 

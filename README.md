@@ -170,7 +170,7 @@ Stop the payload capture and export Razer-only summaries:
 - Tray hardware detection remains poll-based, but tray UI updates are driven by state changes instead of a periodic UI timer.
 - Startup uses hidden scheduled tasks and `pythonw.exe`, so tray and fan startup should be background-only.
 - Keyboard static-white lighting is now working through the Windows stack.
-- Synapse is currently reinstalled only for keyboard packet capture and reverse engineering.
+- Keyboard brightness is now also applied on that Windows-stack path.
 - The USBPcap workflow is now working and has already isolated real Synapse brightness packets for this Blade.
 - newer Windows-side findings now point to additional control-path work beyond raw HID:
   - openable `RZCONTROL` device interface
@@ -180,5 +180,6 @@ Stop the payload capture and export Razer-only summaries:
   - `RzLightingEngineApi_v4.0.54.0.dll`
   - `rz_lamp_array_v1.0.46.0.dll`
 - keyboard reverse engineering is now on a working Windows-stack path that can hold static white while resident
-- the main remaining keyboard work is extending the same path to more effects and preserving the required DLLs before uninstalling Synapse
+- `Razer Chroma` has been removed; the keyboard runtime is now vendored locally under `vendor\razer-runtime`
+- the main remaining keyboard work is extending the same path to more effects
 - The fan daemon may still show first-pass manual verification failures before recovering on retry/revalidation.

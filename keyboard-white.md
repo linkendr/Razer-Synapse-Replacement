@@ -33,18 +33,18 @@ Hold the Blade keyboard in stable `static white` through the Windows Razer light
 ## Default settings
 
 - color: `255,255,255`
-- brightness request: `50%`
+- brightness: `50%`
 - implementation: `windows-stack`
 - effect id: `6`
 - reapply interval: `0`
 - note:
-  - `brightness_percent` is not yet enforced by the `windows-stack` control path
-  - static white ownership is solved, but brightness control still needs Windows-stack extension work
+  - `brightness_percent` is now applied through the Synapse-captured brightness packet family on the `windows-stack` path
 
 ## Startup task
 
 - task name: `RazerKeyboardWhite`
 - execution time limit: `PT0S`
+- trigger: `AtLogOn`
 - expected state after launch: `Running`
 
 ## Maintenance task
@@ -114,6 +114,7 @@ Current keyboard understanding:
 - static white maps to engine `effect_id 6`
 - the important handoff is now reconstructed locally
 - the final missing issue was ownership lifetime, not basic static color payload
+- brightness control is now also applied on the working Windows-stack path
 
 For the full investigation history and the guide for future effects, see:
 

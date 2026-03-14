@@ -13,7 +13,7 @@ The keyboard is now controllable through the Windows Razer lighting stack.
 The currently solved behavior is:
 
 - stable `static white`
-- `50%` brightness request by default
+- `50%` brightness by default
 - no old app-picker popup
 - no visible 5-second reinjection loop
 - the keyboard remains white as long as the background Windows-stack session stays alive
@@ -33,7 +33,7 @@ The correct Windows path is:
 Brightness note:
 
 - the solved Windows-stack path currently holds static color ownership correctly
-- `brightness_percent` is not yet enforced through that path
+- `brightness_percent` is now applied through the Synapse-captured `0x03 0x03 0x03 0x01 0x05 xx` brightness packet family
 
 The important local files are:
 

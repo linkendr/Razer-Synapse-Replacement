@@ -9,7 +9,7 @@ from pathlib import Path
 
 
 PROJECT_DIR = Path(__file__).resolve().parent
-PROXY_DLL = Path(r"C:\Program Files\Razer Chroma SDK\bin\RzChromaSDKProxy64.dll")
+PROXY_DLL = PROJECT_DIR / "vendor" / "razer-runtime" / "sdk-bin" / "RzChromaSDKProxy64.dll"
 DEFAULT_LED_CONFIG = PROJECT_DIR / "captures" / "lighting-engine" / "blade-14-2021-led-config.json"
 
 

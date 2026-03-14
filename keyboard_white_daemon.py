@@ -123,6 +123,7 @@ def main(argv: list[str] | None = None) -> int:
         while True:
             if config.implementation == "windows-stack":
                 session.apply_static_white()
+                rfc.set_keyboard_brightness(config.vendor_id, config.product_id, config.brightness_percent)
             else:
                 rfc.set_keyboard_solid(config.vendor_id, config.product_id, config.rgb, config.brightness_percent)
             logger.log(

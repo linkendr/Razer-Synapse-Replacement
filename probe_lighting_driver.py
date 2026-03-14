@@ -9,9 +9,7 @@ from pathlib import Path
 
 
 PROJECT_DIR = Path(__file__).resolve().parent
-LIGHTING_DLL = Path(
-    r"C:\Users\Administrator\AppData\Local\Razer\RazerAppEngine\User Data\Apps\Common\lighting_driver_v1.9.11.0.dll"
-)
+LIGHTING_DLL = PROJECT_DIR / "vendor" / "razer-runtime" / "common" / "lighting_driver_v1.9.11.0.dll"
 LIGHTING_LOG = Path(
     r"C:\Users\Administrator\AppData\Local\Razer\RazerAppEngine\User Data\Logs\lighting_driver.log"
 )

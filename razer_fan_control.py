@@ -376,6 +376,10 @@ class RazerDevice:
         packet = build_packet(0x0E, 0x04, SET_DIRECTION, [0x01, brightness_raw, 0x00], data_size=0x03, transaction_id=self.keyboard_transaction_id)
         return self.transact(packet)
 
+    def set_keyboard_brightness_synapse_raw(self, brightness_raw: int) -> PacketResponse:
+        packet = build_packet(0x03, 0x03, SET_DIRECTION, [0x03, 0x01, LED_BACKLIGHT, brightness_raw], data_size=0x04, transaction_id=self.keyboard_transaction_id)
+        return self.transact(packet)
+
     def set_keyboard_brightness_legacy_raw(self, brightness_raw: int) -> PacketResponse:
         packet = build_packet(0x03, 0x03, SET_DIRECTION, [LED_VARIABLE_STORAGE, LED_BACKLIGHT, brightness_raw], data_size=0x03, transaction_id=self.keyboard_transaction_id)
         return self.transact(packet)
@@ -494,9 +498,11 @@ def set_keyboard_solid(vendor_id: int, product_id: int, rgb: tuple[int, int, int
     brightness_raw = brightness_percent_to_raw(brightness_percent)
 
     with RazerDevice(candidate) as device:
-        # Prefer the Linux/librazerblade brightness path first, then fall back
-        # to the Synapse-captured legacy packet family.
-        response = device.set_keyboard_brightness_raw(brightness_raw)
+        # Prefer the Synapse-captured brightness packet family first, then
+        # fall back to the older guessed brightness paths.
+        response = device.set_keyboard_brightness_synapse_raw(brightness_raw)
+        if not response.is_success:
+            response = device.set_keyboard_brightness_raw(brightness_raw)
         if not response.is_success:
             response = device.set_keyboard_brightness_legacy_raw(brightness_raw)
         if not response.is_success:
@@ -514,6 +520,20 @@ def set_keyboard_solid(vendor_id: int, product_id: int, rgb: tuple[int, int, int
         response = device.apply_chroma()
         if not response.is_success:
             raise RazerFanControlError(f"keyboard final apply failed with status {response.status}")
+
+
+def set_keyboard_brightness(vendor_id: int, product_id: int, brightness_percent: int) -> None:
+    candidate, _ = find_working_device(vendor_id, product_id)
+    brightness_raw = brightness_percent_to_raw(brightness_percent)
+
+    with RazerDevice(candidate) as device:
+        response = device.set_keyboard_brightness_synapse_raw(brightness_raw)
+        if not response.is_success:
+            response = device.set_keyboard_brightness_raw(brightness_raw)
+        if not response.is_success:
+            response = device.set_keyboard_brightness_legacy_raw(brightness_raw)
+        if not response.is_success:
+            raise RazerFanControlError(f"keyboard brightness write failed with status {response.status}")
 
 
 def query_boost_mode(vendor_id: int, product_id: int, boost_id: int) -> int:
