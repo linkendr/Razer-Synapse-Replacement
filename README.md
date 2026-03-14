@@ -173,6 +173,21 @@ Stop the payload capture and export Razer-only summaries:
 - The auto fan daemon uses the higher of CPU temperature, GPU hotspot, and GPU core temperature.
 - The CPU boost tray drives both CPU boost and GPU high/balanced mode from the notification area.
 - Tray hardware detection remains poll-based, but tray UI updates are driven by state changes instead of a periodic UI timer.
+- The CPU boost tray now uses adaptive worker intervals:
+  - `5s` in active auto mode
+  - `10s` in clearly idle balanced auto mode
+  - `20s` in manual modes
+- The CPU boost tray also backs off to the slower cadence when battery policy is forcing balanced mode.
+- The CPU boost tray now skips CPU/GPU telemetry entirely in manual mode and while auto mode is power-gated by battery policy.
+- The CPU boost tray now uses a hybrid CPU trigger:
+  - package average for heavy all-core work
+  - top-2 logical-core average for lightly threaded CPU-bound work
+  - hottest-core fast path for bursty CPU pressure
+- The current default CPU hot-core thresholds are tuned toward faster gaming reaction:
+  - `top-2 >= 80% for 6s`
+  - `top-1 >= 85% for 5s`
+- The CPU boost tray only does per-core CPU polling in active auto mode.
+- The CPU boost tray now uses a longer `300s` fallback hardware-state sync and disables periodic telemetry logging by default.
 - Startup uses hidden scheduled tasks and `pythonw.exe`, so tray and fan startup should be background-only.
 - Keyboard static-white lighting is now working through the Windows stack and the vendored runtime under `vendor\razer-runtime`.
 - Keyboard brightness is now also applied on that Windows-stack path.

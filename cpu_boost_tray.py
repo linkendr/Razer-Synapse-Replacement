@@ -256,8 +256,11 @@ class TrayConfig:
     vendor_id: int
     product_id: int
     control_mode: str
-    refresh_interval_seconds: float
+    auto_refresh_interval_seconds: float
+    idle_refresh_interval_seconds: float
+    manual_refresh_interval_seconds: float
     state_sync_interval_seconds: float
+    periodic_telemetry_logging: bool
     log_interval_seconds: float
     require_ac_power: bool
     disable_on_battery_saver: bool
@@ -272,8 +275,13 @@ class TrayConfig:
     on_gpu_vram_window_seconds: float
     on_cpu_average_percent: float
     on_cpu_window_seconds: float
+    on_cpu_top2_percent: float
+    on_cpu_top2_window_seconds: float
+    fast_on_cpu_top1_percent: float
+    fast_on_cpu_top1_window_seconds: float
     off_gpu_3d_percent: float
     off_cpu_average_percent: float
+    off_cpu_top2_percent: float
     off_gpu_3d_with_vram_percent: float
     off_gpu_vram_mb: float
     off_window_seconds: float
@@ -292,9 +300,12 @@ class TrayConfig:
             vendor_id=int(data.get("vendor_id", rfc.RAZER_VENDOR_ID)),
             product_id=int(data.get("product_id", rfc.DEFAULT_PRODUCT_ID)),
             control_mode=str(data.get("control_mode", "auto")).lower(),
-            refresh_interval_seconds=float(data.get("refresh_interval_seconds", 5.0)),
-            state_sync_interval_seconds=float(data.get("state_sync_interval_seconds", 60.0)),
-            log_interval_seconds=float(data.get("log_interval_seconds", 30.0)),
+            auto_refresh_interval_seconds=float(data.get("auto_refresh_interval_seconds", data.get("refresh_interval_seconds", 5.0))),
+            idle_refresh_interval_seconds=float(data.get("idle_refresh_interval_seconds", 10.0)),
+            manual_refresh_interval_seconds=float(data.get("manual_refresh_interval_seconds", 20.0)),
+            state_sync_interval_seconds=float(data.get("state_sync_interval_seconds", 300.0)),
+            periodic_telemetry_logging=bool(data.get("periodic_telemetry_logging", False)),
+            log_interval_seconds=float(data.get("log_interval_seconds", 300.0)),
             require_ac_power=bool(data.get("require_ac_power", True)),
             disable_on_battery_saver=bool(data.get("disable_on_battery_saver", True)),
             gpu_balanced_mode=int(data.get("gpu_balanced_mode", 1)),
@@ -308,8 +319,13 @@ class TrayConfig:
             on_gpu_vram_window_seconds=float(data.get("on_gpu_vram_window_seconds", 15.0)),
             on_cpu_average_percent=float(data.get("on_cpu_average_percent", 80.0)),
             on_cpu_window_seconds=float(data.get("on_cpu_window_seconds", 20.0)),
+            on_cpu_top2_percent=float(data.get("on_cpu_top2_percent", 87.5)),
+            on_cpu_top2_window_seconds=float(data.get("on_cpu_top2_window_seconds", 10.0)),
+            fast_on_cpu_top1_percent=float(data.get("fast_on_cpu_top1_percent", 95.0)),
+            fast_on_cpu_top1_window_seconds=float(data.get("fast_on_cpu_top1_window_seconds", 8.0)),
             off_gpu_3d_percent=float(data.get("off_gpu_3d_percent", 15.0)),
             off_cpu_average_percent=float(data.get("off_cpu_average_percent", 35.0)),
+            off_cpu_top2_percent=float(data.get("off_cpu_top2_percent", 45.0)),
             off_gpu_3d_with_vram_percent=float(data.get("off_gpu_3d_with_vram_percent", 25.0)),
             off_gpu_vram_mb=float(data.get("off_gpu_vram_mb", 700.0)),
             off_window_seconds=float(data.get("off_window_seconds", 60.0)),
@@ -324,8 +340,11 @@ class TrayConfig:
             "vendor_id": self.vendor_id,
             "product_id": self.product_id,
             "control_mode": self.control_mode,
-            "refresh_interval_seconds": self.refresh_interval_seconds,
+            "auto_refresh_interval_seconds": self.auto_refresh_interval_seconds,
+            "idle_refresh_interval_seconds": self.idle_refresh_interval_seconds,
+            "manual_refresh_interval_seconds": self.manual_refresh_interval_seconds,
             "state_sync_interval_seconds": self.state_sync_interval_seconds,
+            "periodic_telemetry_logging": self.periodic_telemetry_logging,
             "log_interval_seconds": self.log_interval_seconds,
             "require_ac_power": self.require_ac_power,
             "disable_on_battery_saver": self.disable_on_battery_saver,
@@ -340,8 +359,13 @@ class TrayConfig:
             "on_gpu_vram_window_seconds": self.on_gpu_vram_window_seconds,
             "on_cpu_average_percent": self.on_cpu_average_percent,
             "on_cpu_window_seconds": self.on_cpu_window_seconds,
+            "on_cpu_top2_percent": self.on_cpu_top2_percent,
+            "on_cpu_top2_window_seconds": self.on_cpu_top2_window_seconds,
+            "fast_on_cpu_top1_percent": self.fast_on_cpu_top1_percent,
+            "fast_on_cpu_top1_window_seconds": self.fast_on_cpu_top1_window_seconds,
             "off_gpu_3d_percent": self.off_gpu_3d_percent,
             "off_cpu_average_percent": self.off_cpu_average_percent,
+            "off_cpu_top2_percent": self.off_cpu_top2_percent,
             "off_gpu_3d_with_vram_percent": self.off_gpu_3d_with_vram_percent,
             "off_gpu_vram_mb": self.off_gpu_vram_mb,
             "off_window_seconds": self.off_window_seconds,
@@ -351,12 +375,20 @@ class TrayConfig:
         }
         self.path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
+    def max_refresh_interval_seconds(self) -> float:
+        return max(
+            self.auto_refresh_interval_seconds,
+            self.idle_refresh_interval_seconds,
+            self.manual_refresh_interval_seconds,
+        )
+
 
 @dataclass
 class TelemetrySample:
     timestamp: float
     cpu_average_percent: float
-    cpu_max_percent: float
+    cpu_top1_percent: float
+    cpu_top2_average_percent: float
     gpu_3d_percent: float
     gpu_vram_mb: float
     ac_connected: bool
@@ -444,6 +476,7 @@ class CpuBoostTrayApp:
         self._mixed_state_since_monotonic: float | None = None
         self.telemetry_reader = GpuTelemetryReader(self.state.logger)
         self.history: deque[TelemetrySample] = deque()
+        self._last_worker_interval: float | None = None
         psutil.cpu_percent(interval=None, percpu=True)
 
     def cleanup_icons(self) -> None:
@@ -590,10 +623,27 @@ class CpuBoostTrayApp:
             self.state.config.on_gpu_3d_window_seconds,
             self.state.config.on_gpu_vram_window_seconds,
             self.state.config.fast_on_window_seconds,
-        ) + self.state.config.refresh_interval_seconds + 5.0
+        ) + self.state.config.max_refresh_interval_seconds() + 5.0
         cutoff = sample.timestamp - max_window
         while self.history and self.history[0].timestamp < cutoff:
             self.history.popleft()
+
+    def _clear_history(self) -> None:
+        self.history.clear()
+        with self.state_lock:
+            self.state.last_cpu_utilizations = None
+            self.state.last_gpu_3d_percent = None
+            self.state.last_gpu_vram_mb = None
+
+    def _sample_cpu_usage(self) -> tuple[list[float], float, float, float]:
+        cpu_utils = [float(value) for value in psutil.cpu_percent(interval=None, percpu=True)]
+        if not cpu_utils:
+            return [], 0.0, 0.0, 0.0
+        cpu_average = sum(cpu_utils) / len(cpu_utils)
+        cpu_top1 = max(cpu_utils)
+        hottest = sorted(cpu_utils, reverse=True)[:2]
+        cpu_top2_average = sum(hottest) / len(hottest)
+        return cpu_utils, cpu_average, cpu_top1, cpu_top2_average
 
     def _window_samples(self, now: float, window_seconds: float) -> list[TelemetrySample]:
         return [item for item in self.history if now - item.timestamp <= window_seconds + 1e-6]
@@ -737,6 +787,57 @@ class CpuBoostTrayApp:
             self.state.last_gpu_vram_mb = gpu_vram_mb
         return gpu_3d_percent, gpu_vram_mb
 
+    def _should_collect_auto_telemetry(
+        self,
+        *,
+        ac_connected: bool,
+        battery_saver: bool,
+    ) -> bool:
+        config = self.state.config
+        if config.require_ac_power and not ac_connected:
+            return False
+        if config.disable_on_battery_saver and battery_saver:
+            return False
+        return True
+
+    def _current_refresh_interval(self) -> float:
+        with self.state_lock:
+            config = self.state.config
+            if self.state.control_mode != "auto":
+                return config.manual_refresh_interval_seconds
+
+            if (
+                (config.require_ac_power and self.state.ac_connected is False)
+                or (config.disable_on_battery_saver and self.state.battery_saver)
+            ):
+                return config.manual_refresh_interval_seconds
+
+            if self._performance_enabled_unlocked():
+                return config.auto_refresh_interval_seconds
+
+            cpu_values = self.state.last_cpu_utilizations or []
+            cpu_average = sum(cpu_values) / len(cpu_values) if cpu_values else None
+            cpu_top2_average = (
+                sum(sorted(cpu_values, reverse=True)[:2]) / min(2, len(cpu_values))
+                if cpu_values
+                else None
+            )
+            gpu_3d_percent = self.state.last_gpu_3d_percent
+            currently_balanced = self._balanced_state_active_unlocked()
+
+        if (
+            currently_balanced
+            and cpu_average is not None
+            and cpu_top2_average is not None
+            and gpu_3d_percent is not None
+            and cpu_average <= config.off_cpu_average_percent
+            and cpu_top2_average <= config.off_cpu_top2_percent
+            and gpu_3d_percent <= config.off_gpu_3d_percent
+        ):
+            return config.idle_refresh_interval_seconds
+
+        return config.auto_refresh_interval_seconds
+
     def write_performance_modes(self, *, cpu_boost: int, gpu_boost: int) -> None:
         with self.io_lock:
             cpu_result, gpu_result = rfc.set_performance_modes(
@@ -788,6 +889,8 @@ class CpuBoostTrayApp:
                 f"gpu+vram>={self.state.config.on_gpu_3d_with_vram_percent}%+{self.state.config.on_gpu_vram_mb:.0f}MB/"
                 f"{self.state.config.on_gpu_vram_window_seconds}s, "
                 f"cpu_avg>={self.state.config.on_cpu_average_percent}%/{self.state.config.on_cpu_window_seconds}s, "
+                f"cpu_top2>={self.state.config.on_cpu_top2_percent}%/{self.state.config.on_cpu_top2_window_seconds}s, "
+                f"cpu_top1>={self.state.config.fast_on_cpu_top1_percent}%/{self.state.config.fast_on_cpu_top1_window_seconds}s, "
                 f"off_window={self.state.config.off_window_seconds}s, "
                 f"min_on={self.state.config.min_on_seconds}s, "
                 f"min_off={self.state.config.min_off_seconds}s)."
@@ -832,24 +935,47 @@ class CpuBoostTrayApp:
                 f"{self.state.config.on_cpu_window_seconds:.0f}s"
             )
 
+        avg_cpu_top2 = self._window_average(now, self.state.config.on_cpu_top2_window_seconds, "cpu_top2_average_percent")
+        if avg_cpu_top2 is not None and avg_cpu_top2 >= self.state.config.on_cpu_top2_percent:
+            return (
+                f"CPU top-2 average={avg_cpu_top2:.1f}% over "
+                f"{self.state.config.on_cpu_top2_window_seconds:.0f}s"
+            )
+
+        avg_cpu_top1 = self._window_average(now, self.state.config.fast_on_cpu_top1_window_seconds, "cpu_top1_percent")
+        if avg_cpu_top1 is not None and avg_cpu_top1 >= self.state.config.fast_on_cpu_top1_percent:
+            return (
+                f"CPU hottest-core average={avg_cpu_top1:.1f}% over "
+                f"{self.state.config.fast_on_cpu_top1_window_seconds:.0f}s"
+            )
+
         return None
 
     def _auto_disable_reason(self, now: float) -> str | None:
         avg_gpu = self._window_average(now, self.state.config.off_window_seconds, "gpu_3d_percent")
         avg_cpu = self._window_average(now, self.state.config.off_window_seconds, "cpu_average_percent")
+        avg_cpu_top2 = self._window_average(now, self.state.config.off_window_seconds, "cpu_top2_average_percent")
         avg_vram = self._window_average(now, self.state.config.off_window_seconds, "gpu_vram_mb")
-        if avg_gpu is None or avg_cpu is None or avg_vram is None:
+        if avg_gpu is None or avg_cpu is None or avg_cpu_top2 is None or avg_vram is None:
             return None
 
-        if avg_gpu <= self.state.config.off_gpu_3d_percent and avg_cpu <= self.state.config.off_cpu_average_percent:
+        if (
+            avg_gpu <= self.state.config.off_gpu_3d_percent
+            and avg_cpu <= self.state.config.off_cpu_average_percent
+            and avg_cpu_top2 <= self.state.config.off_cpu_top2_percent
+        ):
             return (
-                f"GPU 3D avg={avg_gpu:.1f}% and CPU avg={avg_cpu:.1f}% over "
+                f"GPU 3D avg={avg_gpu:.1f}%, CPU avg={avg_cpu:.1f}%, and CPU top-2 avg={avg_cpu_top2:.1f}% over "
                 f"{self.state.config.off_window_seconds:.0f}s"
             )
 
-        if avg_gpu <= self.state.config.off_gpu_3d_with_vram_percent and avg_vram <= self.state.config.off_gpu_vram_mb:
+        if (
+            avg_gpu <= self.state.config.off_gpu_3d_with_vram_percent
+            and avg_vram <= self.state.config.off_gpu_vram_mb
+            and avg_cpu_top2 <= self.state.config.off_cpu_top2_percent
+        ):
             return (
-                f"GPU 3D avg={avg_gpu:.1f}% and VRAM avg={avg_vram:.0f}MB over "
+                f"GPU 3D avg={avg_gpu:.1f}%, VRAM avg={avg_vram:.0f}MB, and CPU top-2 avg={avg_cpu_top2:.1f}% over "
                 f"{self.state.config.off_window_seconds:.0f}s"
             )
 
@@ -873,16 +999,44 @@ class CpuBoostTrayApp:
                 self.sync_performance_modes(force_log=first_sync)
 
             ac_connected, battery_saver, _battery_percent = self.read_system_power()
-            cpu_utils = [float(value) for value in psutil.cpu_percent(interval=None, percpu=True)]
+            with self.state_lock:
+                control_mode = self.state.control_mode
+                config = self.state.config
+                currently_balanced = self._balanced_state_active_unlocked()
+                currently_enabled = self._performance_enabled_unlocked()
+                cpu_mode = self.state.current_cpu_boost
+                gpu_mode = self.state.current_gpu_boost
+
+            if control_mode != "auto":
+                self._clear_history()
+                self._mixed_state_since_monotonic = None
+                return
+
+            if not self._should_collect_auto_telemetry(
+                ac_connected=ac_connected,
+                battery_saver=battery_saver,
+            ):
+                self._clear_history()
+                self._mixed_state_since_monotonic = None
+                if not currently_balanced:
+                    reason = (
+                        "AC power is not connected"
+                        if config.require_ac_power and not ac_connected
+                        else "Battery Saver is active"
+                    )
+                    self.state.logger.log(f"Auto mode forcing balanced state because {reason}.")
+                    self.apply_performance_state(False)
+                return
+
+            cpu_utils, cpu_average, cpu_top1, cpu_top2_average = self._sample_cpu_usage()
             with self.state_lock:
                 self.state.last_cpu_utilizations = cpu_utils
             gpu_3d_percent, gpu_vram_mb = self.read_gpu_telemetry()
-            cpu_average = (sum(cpu_utils) / len(cpu_utils)) if cpu_utils else 0.0
-            cpu_max = max(cpu_utils) if cpu_utils else 0.0
             sample = TelemetrySample(
                 timestamp=now,
                 cpu_average_percent=cpu_average,
-                cpu_max_percent=cpu_max,
+                cpu_top1_percent=cpu_top1,
+                cpu_top2_average_percent=cpu_top2_average,
                 gpu_3d_percent=gpu_3d_percent,
                 gpu_vram_mb=gpu_vram_mb,
                 ac_connected=ac_connected,
@@ -890,67 +1044,44 @@ class CpuBoostTrayApp:
             )
             with self.state_lock:
                 self._append_history(sample)
-                control_mode = self.state.control_mode
-                config = self.state.config
-                if control_mode == "auto":
-                    time_in_mode = self._time_in_current_mode(now)
-                    currently_balanced = self._balanced_state_active_unlocked()
-                    currently_enabled = self._performance_enabled_unlocked()
-                    cpu_mode = self.state.current_cpu_boost
-                    gpu_mode = self.state.current_gpu_boost
-                else:
-                    time_in_mode = 0.0
-                    currently_balanced = False
-                    currently_enabled = False
-                    cpu_mode = None
-                    gpu_mode = None
+                time_in_mode = self._time_in_current_mode(now)
 
-            if now - getattr(self, "_last_telemetry_log_monotonic", 0.0) >= self.state.config.log_interval_seconds:
+            if (
+                self.state.config.periodic_telemetry_logging
+                and now - getattr(self, "_last_telemetry_log_monotonic", 0.0) >= self.state.config.log_interval_seconds
+            ):
                 self.state.logger.log(
-                    f"Telemetry cpu_avg={cpu_average:.1f}% cpu_max={cpu_max:.1f}% "
+                    f"Telemetry cpu_avg={cpu_average:.1f}% cpu_top1={cpu_top1:.1f}% cpu_top2={cpu_top2_average:.1f}% "
                     f"gpu_3d={gpu_3d_percent:.1f}% gpu_vram={gpu_vram_mb:.0f}MB "
                     f"ac={ac_connected} saver={battery_saver}."
                 )
                 self._last_telemetry_log_monotonic = now
 
-            if control_mode == "auto":
-                if not currently_enabled and not currently_balanced and (cpu_mode is not None or gpu_mode is not None):
-                    if self._mixed_state_since_monotonic is None:
-                        self._mixed_state_since_monotonic = now
-                        self.state.logger.log(
-                            f"Auto mode detected mixed performance state cpu={cpu_mode} gpu={gpu_mode}; waiting before normalization."
-                        )
-                    elif now - self._mixed_state_since_monotonic >= max(15.0, config.refresh_interval_seconds * 3.0):
-                        self.state.logger.log(
-                            f"Auto mode normalizing persistent mixed performance state cpu={cpu_mode} gpu={gpu_mode} to balanced."
-                        )
-                        self.apply_performance_state(False)
-                    return
-                self._mixed_state_since_monotonic = None
+            if not currently_enabled and not currently_balanced and (cpu_mode is not None or gpu_mode is not None):
+                if self._mixed_state_since_monotonic is None:
+                    self._mixed_state_since_monotonic = now
+                    self.state.logger.log(
+                        f"Auto mode detected mixed performance state cpu={cpu_mode} gpu={gpu_mode}; waiting before normalization."
+                    )
+                elif now - self._mixed_state_since_monotonic >= max(15.0, config.auto_refresh_interval_seconds * 3.0):
+                    self.state.logger.log(
+                        f"Auto mode normalizing persistent mixed performance state cpu={cpu_mode} gpu={gpu_mode} to balanced."
+                    )
+                    self.apply_performance_state(False)
+                return
+            self._mixed_state_since_monotonic = None
 
-                if config.require_ac_power and not ac_connected:
-                    if not currently_balanced:
-                        self.state.logger.log("Auto mode forcing balanced state because AC power is not connected.")
-                        self.apply_performance_state(False)
-                    return
+            enable_reason = self._auto_enable_reason(now)
+            disable_reason = self._auto_disable_reason(now)
 
-                if config.disable_on_battery_saver and battery_saver:
-                    if not currently_balanced:
-                        self.state.logger.log("Auto mode forcing balanced state because Battery Saver is active.")
-                        self.apply_performance_state(False)
-                    return
-
-                enable_reason = self._auto_enable_reason(now)
-                disable_reason = self._auto_disable_reason(now)
-
-                if not currently_enabled:
-                    if time_in_mode >= config.min_off_seconds and enable_reason is not None:
-                        self.state.logger.log(f"Auto mode turning performance on because {enable_reason}.")
-                        self.apply_performance_state(True)
-                else:
-                    if time_in_mode >= config.min_on_seconds and disable_reason is not None:
-                        self.state.logger.log(f"Auto mode turning performance off because {disable_reason}.")
-                        self.apply_performance_state(False)
+            if not currently_enabled:
+                if time_in_mode >= config.min_off_seconds and enable_reason is not None:
+                    self.state.logger.log(f"Auto mode turning performance on because {enable_reason}.")
+                    self.apply_performance_state(True)
+            else:
+                if time_in_mode >= config.min_on_seconds and disable_reason is not None:
+                    self.state.logger.log(f"Auto mode turning performance off because {disable_reason}.")
+                    self.apply_performance_state(False)
         except Exception as exc:
             self._set_error(str(exc), log_prefix="Performance refresh failed")
 
@@ -963,7 +1094,11 @@ class CpuBoostTrayApp:
             self._background_refresh()
             if self.stop_event.is_set():
                 break
-            if self.wake_event.wait(self.state.config.refresh_interval_seconds):
+            wait_seconds = self._current_refresh_interval()
+            if wait_seconds != self._last_worker_interval:
+                self.state.logger.log(f"Worker refresh interval now {wait_seconds:.1f}s.")
+                self._last_worker_interval = wait_seconds
+            if self.wake_event.wait(wait_seconds):
                 self.wake_event.clear()
 
     def toggle(self) -> None:
