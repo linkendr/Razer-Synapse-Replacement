@@ -251,6 +251,65 @@ class GpuTelemetryReader:
         self.memory_counter = None
 
 
+class CpuThermalReader:
+    def __init__(self, logger: FileLogger) -> None:
+        self.logger = logger
+        if not rfc.LHM_DLL.exists():
+            raise CpuBoostTrayError(f"LibreHardwareMonitor library not found at {rfc.LHM_DLL}")
+
+        import clr  # type: ignore
+
+        clr.AddReference(str(rfc.LHM_DLL))
+        from LibreHardwareMonitor.Hardware import Computer, SensorType  # type: ignore
+
+        self._computer_type = Computer
+        self._sensor_type = SensorType
+        self._computer = None
+        self._hardware_nodes = []
+
+    def open(self) -> None:
+        computer = self._computer_type()
+        computer.IsCpuEnabled = True
+        computer.Open()
+        self._computer = computer
+        self._hardware_nodes = []
+
+        for hardware in self._computer.Hardware:
+            hardware_name = str(hardware.Name)
+            if "AMD Ryzen" in hardware_name:
+                self._hardware_nodes.append(hardware)
+                self._hardware_nodes.extend(list(hardware.SubHardware))
+
+        for hardware in self._hardware_nodes:
+            hardware.Update()
+
+    def sample(self) -> float | None:
+        if self._computer is None:
+            self.open()
+
+        cpu_temp = None
+        for hardware in self._hardware_nodes:
+            hardware.Update()
+
+        for hardware in self._hardware_nodes:
+            hardware_name = str(hardware.Name)
+            for sensor in hardware.Sensors:
+                if sensor.SensorType != self._sensor_type.Temperature or sensor.Value is None:
+                    continue
+                if "AMD Ryzen" in hardware_name and str(sensor.Name) == "Core (Tctl/Tdie)":
+                    cpu_temp = round(float(sensor.Value), 2)
+                    break
+            if cpu_temp is not None:
+                break
+        return cpu_temp
+
+    def close(self) -> None:
+        if self._computer is not None:
+            self._computer.Close()
+            self._computer = None
+            self._hardware_nodes = []
+
+
 @dataclass
 class TrayConfig:
     vendor_id: int
@@ -279,6 +338,9 @@ class TrayConfig:
     on_cpu_top2_window_seconds: float
     fast_on_cpu_top1_percent: float
     fast_on_cpu_top1_window_seconds: float
+    thermal_cpu_hot_c: float
+    thermal_cpu_hot_window_seconds: float
+    thermal_cpu_cool_c: float
     off_gpu_3d_percent: float
     off_cpu_average_percent: float
     off_cpu_top2_percent: float
@@ -323,6 +385,9 @@ class TrayConfig:
             on_cpu_top2_window_seconds=float(data.get("on_cpu_top2_window_seconds", 10.0)),
             fast_on_cpu_top1_percent=float(data.get("fast_on_cpu_top1_percent", 95.0)),
             fast_on_cpu_top1_window_seconds=float(data.get("fast_on_cpu_top1_window_seconds", 8.0)),
+            thermal_cpu_hot_c=float(data.get("thermal_cpu_hot_c", 95.0)),
+            thermal_cpu_hot_window_seconds=float(data.get("thermal_cpu_hot_window_seconds", 10.0)),
+            thermal_cpu_cool_c=float(data.get("thermal_cpu_cool_c", 91.0)),
             off_gpu_3d_percent=float(data.get("off_gpu_3d_percent", 15.0)),
             off_cpu_average_percent=float(data.get("off_cpu_average_percent", 35.0)),
             off_cpu_top2_percent=float(data.get("off_cpu_top2_percent", 45.0)),
@@ -363,6 +428,9 @@ class TrayConfig:
             "on_cpu_top2_window_seconds": self.on_cpu_top2_window_seconds,
             "fast_on_cpu_top1_percent": self.fast_on_cpu_top1_percent,
             "fast_on_cpu_top1_window_seconds": self.fast_on_cpu_top1_window_seconds,
+            "thermal_cpu_hot_c": self.thermal_cpu_hot_c,
+            "thermal_cpu_hot_window_seconds": self.thermal_cpu_hot_window_seconds,
+            "thermal_cpu_cool_c": self.thermal_cpu_cool_c,
             "off_gpu_3d_percent": self.off_gpu_3d_percent,
             "off_cpu_average_percent": self.off_cpu_average_percent,
             "off_cpu_top2_percent": self.off_cpu_top2_percent,
@@ -389,6 +457,7 @@ class TelemetrySample:
     cpu_average_percent: float
     cpu_top1_percent: float
     cpu_top2_average_percent: float
+    cpu_temp_c: float | None
     gpu_3d_percent: float
     gpu_vram_mb: float
     ac_connected: bool
@@ -403,6 +472,7 @@ class AppState:
     current_gpu_boost: int | None = None
     last_error: str | None = None
     last_cpu_utilizations: list[float] | None = None
+    last_cpu_temp_c: float | None = None
     last_gpu_3d_percent: float | None = None
     last_gpu_vram_mb: float | None = None
     ac_connected: bool | None = None
@@ -475,6 +545,7 @@ class CpuBoostTrayApp:
         self._last_error_log_monotonic = 0.0
         self._mixed_state_since_monotonic: float | None = None
         self.telemetry_reader = GpuTelemetryReader(self.state.logger)
+        self.cpu_thermal_reader = CpuThermalReader(self.state.logger)
         self.history: deque[TelemetrySample] = deque()
         self._last_worker_interval: float | None = None
         psutil.cpu_percent(interval=None, percpu=True)
@@ -632,6 +703,7 @@ class CpuBoostTrayApp:
         self.history.clear()
         with self.state_lock:
             self.state.last_cpu_utilizations = None
+            self.state.last_cpu_temp_c = None
             self.state.last_gpu_3d_percent = None
             self.state.last_gpu_vram_mb = None
 
@@ -658,7 +730,15 @@ class CpuBoostTrayApp:
         samples = self._window_samples(now, window_seconds)
         if not samples or not self._window_ready(now, window_seconds):
             return None
-        return sum(float(getattr(item, field_name)) for item in samples) / len(samples)
+        values = [
+            float(value)
+            for item in samples
+            for value in [getattr(item, field_name)]
+            if value is not None
+        ]
+        if not values:
+            return None
+        return sum(values) / len(values)
 
     def _time_in_current_mode(self, now: float) -> float:
         return max(0.0, now - self.state.last_mode_change_monotonic)
@@ -787,6 +867,12 @@ class CpuBoostTrayApp:
             self.state.last_gpu_vram_mb = gpu_vram_mb
         return gpu_3d_percent, gpu_vram_mb
 
+    def read_cpu_temperature(self) -> float | None:
+        cpu_temp_c = self.cpu_thermal_reader.sample()
+        with self.state_lock:
+            self.state.last_cpu_temp_c = cpu_temp_c
+        return cpu_temp_c
+
     def _should_collect_auto_telemetry(
         self,
         *,
@@ -822,6 +908,7 @@ class CpuBoostTrayApp:
                 if cpu_values
                 else None
             )
+            cpu_temp_c = self.state.last_cpu_temp_c
             gpu_3d_percent = self.state.last_gpu_3d_percent
             currently_balanced = self._balanced_state_active_unlocked()
 
@@ -829,9 +916,11 @@ class CpuBoostTrayApp:
             currently_balanced
             and cpu_average is not None
             and cpu_top2_average is not None
+            and cpu_temp_c is not None
             and gpu_3d_percent is not None
             and cpu_average <= config.off_cpu_average_percent
             and cpu_top2_average <= config.off_cpu_top2_percent
+            and cpu_temp_c <= config.thermal_cpu_cool_c
             and gpu_3d_percent <= config.off_gpu_3d_percent
         ):
             return config.idle_refresh_interval_seconds
@@ -891,6 +980,8 @@ class CpuBoostTrayApp:
                 f"cpu_avg>={self.state.config.on_cpu_average_percent}%/{self.state.config.on_cpu_window_seconds}s, "
                 f"cpu_top2>={self.state.config.on_cpu_top2_percent}%/{self.state.config.on_cpu_top2_window_seconds}s, "
                 f"cpu_top1>={self.state.config.fast_on_cpu_top1_percent}%/{self.state.config.fast_on_cpu_top1_window_seconds}s, "
+                f"cpu_hot>={self.state.config.thermal_cpu_hot_c}C/{self.state.config.thermal_cpu_hot_window_seconds}s, "
+                f"cpu_cool<={self.state.config.thermal_cpu_cool_c}C, "
                 f"off_window={self.state.config.off_window_seconds}s, "
                 f"min_on={self.state.config.min_on_seconds}s, "
                 f"min_off={self.state.config.min_off_seconds}s)."
@@ -955,7 +1046,14 @@ class CpuBoostTrayApp:
         avg_gpu = self._window_average(now, self.state.config.off_window_seconds, "gpu_3d_percent")
         avg_cpu = self._window_average(now, self.state.config.off_window_seconds, "cpu_average_percent")
         avg_cpu_top2 = self._window_average(now, self.state.config.off_window_seconds, "cpu_top2_average_percent")
+        avg_cpu_temp = self._window_average(now, self.state.config.thermal_cpu_hot_window_seconds, "cpu_temp_c")
         avg_vram = self._window_average(now, self.state.config.off_window_seconds, "gpu_vram_mb")
+        if avg_cpu_temp is not None and avg_cpu_temp >= self.state.config.thermal_cpu_hot_c:
+            return (
+                f"CPU temp avg={avg_cpu_temp:.1f}C over "
+                f"{self.state.config.thermal_cpu_hot_window_seconds:.0f}s"
+            )
+
         if avg_gpu is None or avg_cpu is None or avg_cpu_top2 is None or avg_vram is None:
             return None
 
@@ -980,6 +1078,16 @@ class CpuBoostTrayApp:
             )
 
         return None
+
+    def _thermal_ready_for_enable(self, now: float) -> bool:
+        avg_cpu_temp = self._window_average(now, self.state.config.thermal_cpu_hot_window_seconds, "cpu_temp_c")
+        if avg_cpu_temp is None:
+            with self.state_lock:
+                current_cpu_temp = self.state.last_cpu_temp_c
+            if current_cpu_temp is None:
+                return True
+            return current_cpu_temp <= self.state.config.thermal_cpu_cool_c
+        return avg_cpu_temp <= self.state.config.thermal_cpu_cool_c
 
     def _background_refresh(self) -> None:
         try:
@@ -1031,12 +1139,14 @@ class CpuBoostTrayApp:
             cpu_utils, cpu_average, cpu_top1, cpu_top2_average = self._sample_cpu_usage()
             with self.state_lock:
                 self.state.last_cpu_utilizations = cpu_utils
+            cpu_temp_c = self.read_cpu_temperature()
             gpu_3d_percent, gpu_vram_mb = self.read_gpu_telemetry()
             sample = TelemetrySample(
                 timestamp=now,
                 cpu_average_percent=cpu_average,
                 cpu_top1_percent=cpu_top1,
                 cpu_top2_average_percent=cpu_top2_average,
+                cpu_temp_c=cpu_temp_c,
                 gpu_3d_percent=gpu_3d_percent,
                 gpu_vram_mb=gpu_vram_mb,
                 ac_connected=ac_connected,
@@ -1052,6 +1162,7 @@ class CpuBoostTrayApp:
             ):
                 self.state.logger.log(
                     f"Telemetry cpu_avg={cpu_average:.1f}% cpu_top1={cpu_top1:.1f}% cpu_top2={cpu_top2_average:.1f}% "
+                    f"cpu_temp={cpu_temp_c}C "
                     f"gpu_3d={gpu_3d_percent:.1f}% gpu_vram={gpu_vram_mb:.0f}MB "
                     f"ac={ac_connected} saver={battery_saver}."
                 )
@@ -1073,13 +1184,16 @@ class CpuBoostTrayApp:
 
             enable_reason = self._auto_enable_reason(now)
             disable_reason = self._auto_disable_reason(now)
+            thermal_trip = disable_reason is not None and disable_reason.startswith("CPU temp avg=")
 
             if not currently_enabled:
+                if not self._thermal_ready_for_enable(now):
+                    return
                 if time_in_mode >= config.min_off_seconds and enable_reason is not None:
                     self.state.logger.log(f"Auto mode turning performance on because {enable_reason}.")
                     self.apply_performance_state(True)
             else:
-                if time_in_mode >= config.min_on_seconds and disable_reason is not None:
+                if disable_reason is not None and (thermal_trip or time_in_mode >= config.min_on_seconds):
                     self.state.logger.log(f"Auto mode turning performance off because {disable_reason}.")
                     self.apply_performance_state(False)
         except Exception as exc:
@@ -1131,6 +1245,7 @@ class CpuBoostTrayApp:
         if self.worker_thread.is_alive():
             self.worker_thread.join(timeout=2.0)
         self.telemetry_reader.close()
+        self.cpu_thermal_reader.close()
         self.notify_icon.Visible = False
         self.ui_control.Dispose()
         self.cleanup_icons()

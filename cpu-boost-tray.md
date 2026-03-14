@@ -38,6 +38,9 @@ This tray app adds a notification-area icon for combined CPU boost and GPU mode 
   - full-package CPU average for true all-core work
   - top-2 logical-core average for lightly threaded CPU-bound work
   - hottest-core fast path for short bursty CPU pressure
+- auto mode also has a CPU thermal override:
+  - force balanced if CPU temp averages `>= 95C` for `10s`
+  - do not re-enter boost until CPU temp is back at or below `91C`
 
 ## Runtime model
 
@@ -102,6 +105,9 @@ Remove startup:
   - `CPU average >= 80% for 20s`
   - `top-2 logical cores average >= 80% for 6s`
   - `hottest logical core average >= 85% for 5s`
+- default CPU thermal override is:
+  - force balanced if `CPU temp avg >= 95C for 10s`
+  - hold boost-off until `CPU temp <= 91C`
 - default CPU off guard is:
   - `CPU average <= 35%` and `top-2 logical cores average <= 45%` over the `60s` off window
 - the tray app persists the selected mode back into the config file

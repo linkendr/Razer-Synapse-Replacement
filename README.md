@@ -186,6 +186,9 @@ Stop the payload capture and export Razer-only summaries:
 - The current default CPU hot-core thresholds are tuned toward faster gaming reaction:
   - `top-2 >= 80% for 6s`
   - `top-1 >= 85% for 5s`
+- The CPU boost tray now has a CPU thermal override:
+  - force balanced at `>= 95C` sustained
+  - do not re-enter boost until the CPU cools to `<= 91C`
 - The CPU boost tray only does per-core CPU polling in active auto mode.
 - The CPU boost tray now uses a longer `300s` fallback hardware-state sync and disables periodic telemetry logging by default.
 - Startup uses hidden scheduled tasks and `pythonw.exe`, so tray and fan startup should be background-only.
