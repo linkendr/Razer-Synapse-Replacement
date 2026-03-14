@@ -42,6 +42,11 @@ These are intentionally ignored by git:
 - `*-crash.log`
 - local verification/status notes such as `status.md`
 
+Important lighting note:
+
+- the working keyboard-lighting path requires a local copy of the vendored Razer runtime under `vendor\razer-runtime`
+- that runtime is intentionally not published in git, so a fresh clone needs those DLLs restored locally before keyboard lighting will work
+
 ## Setup
 
 Create a virtual environment and install dependencies:
@@ -163,14 +168,15 @@ Stop the payload capture and export Razer-only summaries:
 ## Notes
 
 - The working control interface on this model uses the `MI_02` HID interface.
-- The CLI uses read and write feature reports directly and does not require Synapse APIs.
+- Fan, boost, and the base CLI control path use direct feature-report traffic and do not depend on Synapse APIs.
 - CPU temperature is read through `LibreHardwareMonitorLib.dll` and a local `PawnIO` installation.
 - The auto fan daemon uses the higher of CPU temperature, GPU hotspot, and GPU core temperature.
 - The CPU boost tray drives both CPU boost and GPU high/balanced mode from the notification area.
 - Tray hardware detection remains poll-based, but tray UI updates are driven by state changes instead of a periodic UI timer.
 - Startup uses hidden scheduled tasks and `pythonw.exe`, so tray and fan startup should be background-only.
-- Keyboard static-white lighting is now working through the Windows stack.
+- Keyboard static-white lighting is now working through the Windows stack and the vendored runtime under `vendor\razer-runtime`.
 - Keyboard brightness is now also applied on that Windows-stack path.
+- Keyboard maintenance now uses a non-disruptive ensure-running task instead of a forced periodic teardown.
 - The USBPcap workflow is now working and has already isolated real Synapse brightness packets for this Blade.
 - newer Windows-side findings now point to additional control-path work beyond raw HID:
   - openable `RZCONTROL` device interface
@@ -179,7 +185,7 @@ Stop the payload capture and export Razer-only summaries:
   - `lighting_driver_v1.9.11.0.dll`
   - `RzLightingEngineApi_v4.0.54.0.dll`
   - `rz_lamp_array_v1.0.46.0.dll`
-- keyboard reverse engineering is now on a working Windows-stack path that can hold static white while resident
+- keyboard reverse engineering is now on a working Windows-stack path that can hold static white while resident with only low-churn maintenance reapplication
 - `Razer Chroma` has been removed; the keyboard runtime is now vendored locally under `vendor\razer-runtime`
 - the main remaining keyboard work is extending the same path to more effects
 - The fan daemon may still show first-pass manual verification failures before recovering on retry/revalidation.

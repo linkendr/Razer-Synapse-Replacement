@@ -91,6 +91,8 @@ Other discovered components were useful context but not the final solved path:
 
 ### Important log sources
 
+These were the most useful sources during reverse engineering. They are historical references now, not part of the normal post-Synapse runtime.
+
 The most useful live sources were:
 
 - `C:\Users\Administrator\AppData\Local\Razer\RazerAppEngine\User Data\Logs\lighting-engine.log`
@@ -104,6 +106,8 @@ Those logs provided:
 - device handle behavior
 - support-effect inventory
 - confirmation that the Blade was using `rzDevice25LedMatrix`
+
+If those logs are no longer present because Synapse/Chroma has already been removed, use the preserved capture artifacts in this repo first. Only reinstall Synapse temporarily if you are extending the lighting path and the existing captures are insufficient.
 
 ## Static white effect mapping
 
@@ -229,8 +233,8 @@ Important runtime behavior:
 In the final semantics, `reapply_interval_seconds = 0` means:
 
 - apply once
-- do not visibly reinject
-- keep the process alive forever unless stopped
+- avoid frequent visible reinjection loops
+- keep the process alive and only wake on a very low cadence for maintenance
 
 This is different from the old meaning of "apply once and exit."
 
@@ -240,11 +244,14 @@ The scheduled task is:
 
 - `RazerKeyboardWhite`
 
-The task should now stay:
+Operational note:
 
-- `Running`
-
-It should not behave like the old one-shot keyboard apply path that returned to `Ready` immediately.
+- this task is intentionally `AtLogOn` / interactive-session based
+- do not convert it to `AtStartup` / `SYSTEM` without revalidating the whole lighting path
+- Task Scheduler may still show `Ready` after the effect is applied, so the real checks are:
+  - `keyboard-white.log`
+  - the running `keyboard_white_daemon.py` process
+  - the actual keyboard state
 
 ## How to use the current solved path
 
@@ -330,19 +337,21 @@ For reactive, tidal, ripple, breathing, and other dynamic effects:
 - Synapse transforms the higher-level UI parameters into richer engine payloads
 - those transformed payloads need to be mirrored at the engine layer
 
-## Before uninstalling Synapse
+## After removing Synapse
 
-The current working keyboard path still depends on Synapse-installed DLLs being available on disk.
+The current working keyboard path no longer depends on an installed Synapse/Chroma runtime.
 
-Preserve these before removing Synapse:
+The required Windows lighting DLLs are now loaded from the local vendored runtime:
 
-- `lighting_driver_v1.9.11.0.dll`
-- `RzLightingEngineApi_v4.0.54.0.dll`
-- `RzChromaSDKProxy64.dll`
+- `vendor\razer-runtime\common\lighting_driver_v1.9.11.0.dll`
+- `vendor\razer-runtime\common\RzLightingEngineApi_v4.0.54.0.dll`
+- `vendor\razer-runtime\sdk-bin\RzChromaSDKProxy64.dll`
 
-If uninstalling Synapse removes them, this keyboard solution will break until those files are preserved locally and loaded from a stable path.
+Important operational note:
 
-Do not assume Synapse uninstall is harmless to the keyboard path until those dependencies are secured.
+- `vendor\` is git-ignored in this project
+- a fresh clone will not have those DLLs automatically
+- keyboard lighting will not work until `vendor\razer-runtime` is restored locally
 
 ## Cold-start AI checklist
 
@@ -353,7 +362,8 @@ If a future AI starts fresh, it should do this:
 3. inspect `keyboard-white-config.json`
 4. inspect `keyboard_white_daemon.py`
 5. check whether `RazerKeyboardWhite` is running
-6. use `lighting-engine.log` for any new effect work
+6. use the preserved captures and playbook notes for effect work first
+7. only if those are insufficient, temporarily reinstall Synapse to regenerate `lighting-engine.log` / related logs for the new effect
 
 It should not restart from:
 

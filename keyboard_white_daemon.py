@@ -55,7 +55,7 @@ class KeyboardWhiteConfig:
             rgb=(rgb[0], rgb[1], rgb[2]),
             reapply_interval_seconds=float(data.get("reapply_interval_seconds", 60.0)),
             implementation=str(data.get("implementation", "windows-stack")),
-            effect_id=int(data.get("effect_id", 8)),
+            effect_id=int(data.get("effect_id", 6)),
             log_path=log_path,
         )
 
@@ -105,13 +105,13 @@ def main(argv: list[str] | None = None) -> int:
     logger = FileLogger(config.log_path, args.verbose)
     guard = SingleInstanceGuard(MUTEX_NAME)
     deadline = time.time() + args.duration_seconds if args.duration_seconds is not None else None
+    session = None
 
     try:
         logger.log(
             f"Keyboard white daemon started rgb={config.rgb} brightness={config.brightness_percent}% "
             f"interval={config.reapply_interval_seconds}s implementation={config.implementation} effect_id={config.effect_id}."
         )
-        session = None
         if config.implementation == "windows-stack":
             color_value = (config.rgb[0] << 16) | (config.rgb[1] << 8) | config.rgb[2]
             session = kws.KeyboardWindowsStackSession(
@@ -121,15 +121,26 @@ def main(argv: list[str] | None = None) -> int:
                 )
             )
         while True:
+            brightness_applied = True
             if config.implementation == "windows-stack":
                 session.apply_static_white()
-                rfc.set_keyboard_brightness(config.vendor_id, config.product_id, config.brightness_percent)
+                try:
+                    rfc.set_keyboard_brightness(config.vendor_id, config.product_id, config.brightness_percent)
+                except Exception as exc:
+                    brightness_applied = False
+                    logger.log(f"Keyboard brightness write failed; keeping static-white session alive: {exc}")
             else:
                 rfc.set_keyboard_solid(config.vendor_id, config.product_id, config.rgb, config.brightness_percent)
-            logger.log(
-                f"Applied keyboard RGB({config.rgb[0]}, {config.rgb[1]}, {config.rgb[2]}) "
-                f"at {config.brightness_percent}% brightness."
-            )
+            if brightness_applied:
+                logger.log(
+                    f"Applied keyboard RGB({config.rgb[0]}, {config.rgb[1]}, {config.rgb[2]}) "
+                    f"at {config.brightness_percent}% brightness."
+                )
+            else:
+                logger.log(
+                    f"Applied keyboard RGB({config.rgb[0]}, {config.rgb[1]}, {config.rgb[2]}) "
+                    f"with previous brightness still held."
+                )
 
             if args.once:
                 break
@@ -145,9 +156,9 @@ def main(argv: list[str] | None = None) -> int:
                     time.sleep(sleep_seconds)
                 break
             time.sleep(config.reapply_interval_seconds)
+    finally:
         if session is not None:
             session.close()
-    finally:
         guard.close()
 
     logger.log("Keyboard white daemon exiting.")

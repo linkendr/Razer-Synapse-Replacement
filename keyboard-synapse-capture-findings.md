@@ -2,9 +2,21 @@
 
 Date: 2026-03-13
 
+## Historical note
+
+This document is now mainly a capture-phase reference.
+
+The static-white keyboard problem is solved through the resident Windows-stack path documented in:
+
+- `keyboard-control-playbook.md`
+- `keyboard_windows_stack.py`
+- `keyboard_white_daemon.py`
+
+Use this file for packet-level context and effect-development history, not as the current source of truth for operational state.
+
 ## Purpose
 
-Document the current reverse-engineering state for the Blade 14 2021 keyboard lighting path while Razer Synapse is temporarily reinstalled.
+Document the capture-phase reverse-engineering state for the Blade 14 2021 keyboard lighting path while Razer Synapse was temporarily reinstalled.
 
 The goal is to identify the exact packets Synapse uses for:
 
@@ -174,21 +186,18 @@ What is now confirmed:
 
 What is still missing:
 
-- the engine/proxy replay still does not take ownership of the Blade keyboard output
-- the keyboard still falls back to the built-in reactive/breathing behavior
-- the strongest remaining suspect is the Blade-specific mode/bootstrap step logged by Synapse before quick effects take over
+- the captured brightness packet family was correct and is now used locally
+- the broader static-white problem was not fully solvable from packet replay alone
+- the final solution used the Windows lighting stack plus a resident ownership-holding process
 
 That means the USB captures remain important as reference, but the remaining work is now focused on reproducing Synapse's Windows control-path setup, not just replaying row packets.
 
-What is still outstanding:
+What remains useful from this document:
 
-- capture and isolate the exact static-mode / effect-reset command sequence
-- verify the packet sequence for:
-  - static white
-  - off
-  - clearing breathing/reactive mode
-- implement those exact packets in `razer_fan_control.py`
-- remove Synapse again after validation
+- the exact brightness packet family
+- the USB transport framing details
+- the capture workflow for future effect work
+- the evidence that color, brightness, and effect ownership were separate controls on this machine
 
 ## Recommended next capture pattern
 

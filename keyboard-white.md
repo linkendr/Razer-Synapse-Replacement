@@ -27,7 +27,7 @@ Hold the Blade keyboard in stable `static white` through the Windows Razer light
 - the current model is:
   - take ownership once
   - apply static white
-  - keep the process alive
+  - keep the process alive with a very low-churn maintenance cadence
 - the intended UX is not a visible periodic reinjection loop
 
 ## Default settings
@@ -45,15 +45,22 @@ Hold the Blade keyboard in stable `static white` through the Windows Razer light
 - task name: `RazerKeyboardWhite`
 - execution time limit: `PT0S`
 - trigger: `AtLogOn`
-- expected state after launch: `Running`
+- this task is intentionally interactive-session based
+- do not convert it to `AtStartup` / `SYSTEM` like the fan daemon unless you are re-validating the entire Windows lighting path
+- expected steady state:
+  - the keyboard remains static white while the background process stays alive
+  - Task Scheduler may still show `Ready` after the effect is applied, so the better checks are `keyboard-white.log` and the running `keyboard_white_daemon.py` process
 
 ## Maintenance task
 
 - task name: `RazerKeyboardWhiteRefresh`
 - purpose:
-  - restart the known-good keyboard daemon on a long cadence without touching the lighting sequence itself
+  - ensure the known-good keyboard daemon is present on a long cadence without forcibly interrupting lighting
 - cadence:
-  - every `6` hours
+  - `12:00 AM`
+  - `6:00 AM`
+  - `12:00 PM`
+  - `6:00 PM`
 
 ## Files on disk
 
@@ -85,6 +92,12 @@ Refresh now:
 
 ```powershell
 .\refresh_keyboard_white_now.ps1
+```
+
+Force restart now:
+
+```powershell
+.\refresh_keyboard_white_now.ps1 -ForceRestart
 ```
 
 Stop now:

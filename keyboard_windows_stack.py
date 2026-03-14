@@ -43,7 +43,7 @@ class KeyboardWindowsStackError(RuntimeError):
 @dataclass(frozen=True)
 class KeyboardWindowsStackConfig:
     color_value: int = 0xFFFFFF
-    effect_id: int = 8
+    effect_id: int = 6
     fps: int = 25
     proxy_operating_mode: int = 2
     engine_operating_mode: int = 65538
@@ -162,14 +162,13 @@ class KeyboardWindowsStackSession:
         if not isinstance(add_device, dict):
             raise KeyboardWindowsStackError("AddDevice returned invalid payload")
         self.proxy_handle = int(add_device.get("return", {}).get("device_handle"))
-        self.proxy.call(
-            "RzChromaSDKProxy",
-            build_set_device_state_action(True, int(self.proxy_handle)),
-        )
+        self.proxy.call("RzChromaSDKProxy", build_set_device_state_action(True, int(self.proxy_handle)))
         register_handle(self.driver, int(self.proxy_handle), self.config.mode)
         self._send_raw_packets(BOOTSTRAP_DEFAULT_AFTER)
-        self.created_engine = int(self.engine.api({"Action": 3, "fps": self.config.fps, "type": "Basic"})["engine_handle"])
-        self.created_device = int(self.engine.api({"Action": 1, "config": self.led_config})["device_handle"])
+        create_engine = self.engine.api({"Action": 3, "fps": self.config.fps, "type": "Basic"})
+        self.created_engine = int(create_engine["engine_handle"])
+        create_device = self.engine.api({"Action": 1, "config": self.led_config})
+        self.created_device = int(create_device["device_handle"])
         self.engine.api(
             {
                 "Action": 17,
@@ -177,7 +176,7 @@ class KeyboardWindowsStackSession:
                 "device_handle": self.created_device,
                 "region": 0,
                 "orientation": 0,
-            }
+            },
         )
         self.engine.api(
             {
@@ -189,7 +188,7 @@ class KeyboardWindowsStackSession:
                 "col": self.position_col,
                 "layer": 0,
                 "check_overlapping": False,
-            }
+            },
         )
         self._started = True
         self._ownership_applied = False
@@ -215,23 +214,19 @@ class KeyboardWindowsStackSession:
                 "device_handle": 0,
                 "region": 0,
                 "clearFrame": 1,
-            }
+            },
         )
 
-        effect_param: dict[str, object]
-        if self.config.effect_id == 6:
-            # The low-level API receives an integer Color. The string "0xffffff"
-            # lives in Synapse's higher JS layer before it normalizes the payload.
-            effect_param = {"Color": int(self.config.color_value)}
-        else:
-            effect_param = {"Color": int(self.config.color_value)}
+        # The low-level API receives an integer Color. The string "0xffffff"
+        # lives in Synapse's higher JS layer before it normalizes the payload.
+        effect_param: dict[str, object] = {"Color": int(self.config.color_value)}
         add_effect = self.engine.api(
             {
                 "Action": 33,
                 "engine_handle": self.created_engine,
                 "effect": self.config.effect_id,
                 "EffectParam": effect_param,
-            }
+            },
         )
         effect_handle = add_effect.get("effect_handle")
         if effect_handle is not None:
@@ -244,7 +239,7 @@ class KeyboardWindowsStackSession:
                 "device_handle": 0,
                 "region": 0,
                 "clearFrame": 1,
-            }
+            },
         )
 
     def apply_static_white(self) -> None:

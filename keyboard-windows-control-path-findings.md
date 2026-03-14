@@ -4,7 +4,15 @@ Date: 2026-03-13
 
 ## Summary
 
-The remaining keyboard-lighting issue is not just a packet-shape problem.
+This file contains the historical Windows-path investigation that led to the solved static-white implementation.
+
+Current solved state:
+
+- static white is working through the resident Windows-stack session
+- brightness is applied on that path
+- Synapse/Chroma userland has been removed
+
+The early sections below describe the unresolved investigation state that existed before that final convergence.
 
 The current evidence points to a Windows-specific control stack layered on top of the Blade USB/HID path:
 
