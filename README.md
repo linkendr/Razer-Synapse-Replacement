@@ -173,6 +173,7 @@ Stop the payload capture and export Razer-only summaries:
 
 ## Notes
 
+- On this machine, this repo is currently mounted at `C:\Users\Administrator\AI-DESKTOP-INSTRUCTIONS\tools\windows\razer-synapse-replacement`.
 - The working control interface on this model uses the `MI_02` HID interface.
 - Fan, boost, and the base CLI control path use direct feature-report traffic and do not depend on Synapse APIs.
 - CPU temperature is read through `LibreHardwareMonitorLib.dll` and a local `PawnIO` installation.
@@ -198,6 +199,7 @@ Stop the payload capture and export Razer-only summaries:
 - The CPU boost tray only does per-core CPU polling in active auto mode.
 - The CPU boost tray now uses a longer `300s` fallback hardware-state sync and disables periodic telemetry logging by default.
 - Startup uses hidden scheduled tasks and `pythonw.exe`, so tray and fan startup should be background-only.
+- If this repo path changes, rerun the `install_*_startup.ps1` and `install_keyboard_white_maintenance.ps1` scripts because the scheduled tasks store absolute paths.
 - Keyboard static-white lighting is now working through the Windows stack and the vendored runtime under `vendor\razer-runtime`.
 - Keyboard brightness is now also applied on that Windows-stack path.
 - Keyboard maintenance now uses a non-disruptive ensure-running task instead of a forced periodic teardown.

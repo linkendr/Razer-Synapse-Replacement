@@ -10,6 +10,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
+from ctypes import wintypes
 
 import hid
 
@@ -72,6 +73,19 @@ PROJECT_DIR = Path(__file__).resolve().parent
 VENDOR_DIR = PROJECT_DIR / "vendor" / "LibreHardwareMonitor-v0.9.6"
 LHM_DLL = VENDOR_DIR / "LibreHardwareMonitorLib.dll"
 RAZER_WRITE_MUTEX = r"Global\RazerReadWriteGuardMutex"
+SECURITY_DESCRIPTOR_REVISION = 1
+SECURITY_DESCRIPTOR_MIN_LENGTH = 20
+ERROR_FILE_NOT_FOUND = 2
+MUTEX_MODIFY_STATE = 0x0001
+SYNCHRONIZE = 0x00100000
+
+
+class SECURITY_ATTRIBUTES(ctypes.Structure):
+    _fields_ = [
+        ("nLength", wintypes.DWORD),
+        ("lpSecurityDescriptor", wintypes.LPVOID),
+        ("bInheritHandle", wintypes.BOOL),
+    ]
 
 
 class RazerFanControlError(RuntimeError):
@@ -82,11 +96,33 @@ class NamedMutex:
     def __init__(self, name: str) -> None:
         self._name = name
         self._handle = None
+        self._security_descriptor = None
+
+    def _build_security_attributes(self) -> SECURITY_ATTRIBUTES:
+        advapi32 = ctypes.windll.advapi32
+        security_descriptor = ctypes.create_string_buffer(SECURITY_DESCRIPTOR_MIN_LENGTH)
+        if not advapi32.InitializeSecurityDescriptor(ctypes.byref(security_descriptor), SECURITY_DESCRIPTOR_REVISION):
+            raise RazerFanControlError(f"failed to initialize security descriptor for mutex {self._name}")
+        if not advapi32.SetSecurityDescriptorDacl(ctypes.byref(security_descriptor), True, None, False):
+            raise RazerFanControlError(f"failed to set security descriptor DACL for mutex {self._name}")
+        self._security_descriptor = security_descriptor
+        return SECURITY_ATTRIBUTES(
+            nLength=ctypes.sizeof(SECURITY_ATTRIBUTES),
+            lpSecurityDescriptor=ctypes.cast(security_descriptor, wintypes.LPVOID),
+            bInheritHandle=False,
+        )
 
     def __enter__(self) -> "NamedMutex":
-        self._handle = ctypes.windll.kernel32.CreateMutexW(None, False, self._name)
+        desired_access = MUTEX_MODIFY_STATE | SYNCHRONIZE
+        self._handle = ctypes.windll.kernel32.OpenMutexW(desired_access, False, self._name)
         if not self._handle:
-            raise RazerFanControlError(f"failed to create/open mutex {self._name}")
+            last_error = ctypes.windll.kernel32.GetLastError()
+            if last_error != ERROR_FILE_NOT_FOUND:
+                raise RazerFanControlError(f"failed to open mutex {self._name}: {last_error}")
+            security_attributes = self._build_security_attributes()
+            self._handle = ctypes.windll.kernel32.CreateMutexW(ctypes.byref(security_attributes), False, self._name)
+            if not self._handle:
+                raise RazerFanControlError(f"failed to create/open mutex {self._name}")
 
         wait_result = ctypes.windll.kernel32.WaitForSingleObject(self._handle, 5000)
         if wait_result not in (0, 0x80):
@@ -100,6 +136,7 @@ class NamedMutex:
             ctypes.windll.kernel32.ReleaseMutex(self._handle)
             ctypes.windll.kernel32.CloseHandle(self._handle)
             self._handle = None
+        self._security_descriptor = None
 
 
 @dataclass(frozen=True)
