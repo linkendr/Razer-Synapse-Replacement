@@ -56,11 +56,28 @@ Hold the Blade keyboard in stable `static white` through the Windows Razer light
 - task name: `RazerKeyboardWhiteRefresh`
 - purpose:
   - ensure the known-good keyboard daemon is present on a long cadence without forcibly interrupting lighting
+- operational note:
+  - this task is optional
+  - removing it is supported if the goal is to rely only on the normal interactive-session startup task
+  - remove it with `.\remove_keyboard_white_maintenance.ps1`
 - cadence:
   - `12:00 AM`
   - `6:00 AM`
   - `12:00 PM`
   - `6:00 PM`
+
+## Supported modes
+
+- supported:
+  - `RazerKeyboardWhite` at `AtLogOn`
+  - optional `RazerKeyboardWhiteRefresh` maintenance task
+  - resident `keyboard_white_daemon.py` process holding ownership after startup
+- not currently documented as a supported steady-state mode:
+  - apply once at startup/logon and then exit with no resident daemon
+  - converting the keyboard helper to `AtStartup` / `SYSTEM` without revalidation
+- important semantics:
+  - `reapply_interval_seconds = 0` does not mean "apply once and exit"
+  - for the current Windows-stack path it means "apply once, stay resident, and wake only on a very low maintenance cadence"
 
 ## Files on disk
 

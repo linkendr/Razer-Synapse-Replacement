@@ -147,6 +147,12 @@ Install keyboard maintenance refresh:
 .\install_keyboard_white_maintenance.ps1
 ```
 
+Remove keyboard maintenance refresh:
+
+```powershell
+.\remove_keyboard_white_maintenance.ps1
+```
+
 Start a payload capture for Synapse keyboard actions:
 
 ```powershell
@@ -195,6 +201,8 @@ Stop the payload capture and export Razer-only summaries:
 - Keyboard static-white lighting is now working through the Windows stack and the vendored runtime under `vendor\razer-runtime`.
 - Keyboard brightness is now also applied on that Windows-stack path.
 - Keyboard maintenance now uses a non-disruptive ensure-running task instead of a forced periodic teardown.
+- The keyboard maintenance task is optional; the supported baseline is still the interactive-session `AtLogOn` task plus the resident keyboard daemon.
+- A true one-shot keyboard mode that applies once and exits is not the documented supported steady state for the current Windows-stack path.
 - The USBPcap workflow is now working and has already isolated real Synapse brightness packets for this Blade.
 - newer Windows-side findings now point to additional control-path work beyond raw HID:
   - openable `RZCONTROL` device interface
