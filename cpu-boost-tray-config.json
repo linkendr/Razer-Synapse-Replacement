@@ -1,7 +1,7 @@
 {
   "vendor_id": 5426,
   "product_id": 624,
-  "control_mode": "auto",
+  "control_mode": "manual",
   "auto_refresh_interval_seconds": 5.0,
   "idle_refresh_interval_seconds": 10.0,
   "manual_refresh_interval_seconds": 20.0,
@@ -36,5 +36,5 @@
   "off_window_seconds": 60.0,
   "min_on_seconds": 180.0,
   "min_off_seconds": 45.0,
-  "log_path": "cpu-boost-tray.log"
+  "log_path": "C:\\Users\\Administrator\\AI-DESKTOP-INSTRUCTIONS\\tools\\windows\\razer-synapse-replacement\\cpu-boost-tray.log"
 }
