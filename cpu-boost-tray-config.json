@@ -1,7 +1,7 @@
 {
   "vendor_id": 5426,
   "product_id": 624,
-  "control_mode": "manual",
+  "control_mode": "auto",
   "auto_refresh_interval_seconds": 5.0,
   "idle_refresh_interval_seconds": 10.0,
   "manual_refresh_interval_seconds": 20.0,
