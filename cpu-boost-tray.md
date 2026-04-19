@@ -1,6 +1,6 @@
 # CPU Boost Tray
 
-This tray app adds a notification-area icon for combined CPU boost and GPU mode control without Synapse.
+This tray app adds a notification-area icon for two manual performance states without Synapse.
 
 ## Files
 
@@ -16,57 +16,60 @@ This tray app adds a notification-area icon for combined CPU boost and GPU mode 
 - sits in the Windows notification area
 - manual-on icon is a green circle with a filled lightning bolt
 - manual-off icon is a red circle with a hollow lightning bolt
-- auto icon is a green circle with a lightning bolt and an `AUTO` badge overlay
-- left click cycles `AUTO -> Manual On -> Manual Off -> AUTO`
-- `Manual On` means `CPU Boost On + GPU High`
-- `Manual Off` means `CPU Boost Off + GPU Balanced`
+- left click toggles `Boost Off <-> Boost On`
+- `Boost On` means:
+  - `CPU Boost On`
+  - `GPU High`
+  - Windows AC processor policy min/max = `50/95`
+- `Boost Off` means:
+  - `CPU Boost On`
+  - `GPU Balanced`
+  - Windows AC processor policy min/max = `5/95`
 - menu status lines show:
-  - `CPU: BOOST` or `CPU: Normal`
+  - `CPU: BOOST`
   - `GPU: High` or `GPU: Normal`
-- supports `Manual Boost ON`, `Manual Boost OFF`, `Auto Mode`, and `Exit`
-- default startup mode is `auto`
-- auto mode checks telemetry every `5` seconds by default
-- when auto mode is already balanced and the machine is clearly idle, the worker slows to `10` seconds by default
-- manual modes slow the worker to `20` seconds by default
-- auto mode also backs off to the manual cadence while AC/Battery Saver policy is forcing balanced mode
-- auto mode requires AC power by default
-- auto mode forces the balanced profile when Battery Saver is active
-- auto mode also reads Windows GPU counters for the NVIDIA adapter:
-  - GPU 3D engine utilization
-  - dedicated VRAM usage
-- auto mode uses hybrid CPU triggers:
-  - full-package CPU average for true all-core work
-  - top-2 logical-core average for lightly threaded CPU-bound work
-  - hottest-core fast path for short bursty CPU pressure
-- auto mode also has a CPU thermal override:
-  - force balanced if CPU temp averages `>= 95C` for `10s`
-  - do not re-enter boost until CPU temp is back at or below `91C`
+- supports `Boost ON`, `Boost OFF`, and `Exit`
+- startup always forces `Boost Off`
+- the background worker now serves mostly as periodic hardware-state sync and error recovery
 
 ## Runtime model
 
 - telemetry sampling runs on a background worker thread
-- hardware-utilization detection remains poll-based
 - tray UI updates are driven by state changes instead of a periodic UI timer
 - hardware mode sync reuses the last known working HID interface instead of rediscovering it every time
 - hardware mode sync is throttled to every `300` seconds by default, with immediate sync on startup and after our own writes
-- the tray skips CPU and GPU telemetry collection entirely in manual modes
-- the tray also skips CPU and GPU telemetry collection while auto mode is power-gated by battery or Battery Saver policy
-- CPU load sampling now uses per-core polling only in active auto mode, so it can derive package average, hottest-core, and top-2-core signals from a single sample
-- periodic telemetry logging is disabled by default; normal steady-state logging is now mostly transitions and errors
-- NVIDIA GPU counters are read through native `.NET PerformanceCounter` APIs instead of spawning `powershell.exe`
+- periodic telemetry logging is disabled by default; normal steady-state logging is mostly transitions, sync, and errors
 - repeated refresh failures are log-throttled
+
+## Expected behavior
+
+- `Boost Off` is not a hard CPU throttle
+- with the current defaults, `Boost Off` restores Windows AC processor policy to `5/95`
+- that means the CPU may still climb to high utilization and high clocks under real load because the AC max remains `95`
+- `Boost On` keeps CPU boost enabled, raises the GPU to high mode, and raises the Windows AC floor to `50%`
+- the tray no longer has an auto mode or thermal trigger logic in the active UI path
+- temperature control now comes primarily from the fixed Windows AC max cap and the chosen AC minimum for each tray state
 
 ## Startup
 
 - uses a hidden scheduled task named `RazerCpuBoostTray`
 - launches `pythonw.exe`, so it should not leave a console window open
 - the installed task is registered with `ExecutionTimeLimit = PT0S`
+- on this machine, Task Scheduler starts the tray through the venv `pythonw.exe`, which in turn spawns the base Python `pythonw.exe`
+- that parent/child `pythonw.exe` pair is expected here and does not by itself mean there are two independent tray instances
 
 ## Files on disk
 
 - config file: `cpu-boost-tray-config.json`
 - activity log: `cpu-boost-tray.log`
 - crash log: `cpu-boost-tray-crash.log`
+- processor-policy config keys:
+  - `manage_windows_processor_policy`
+  - `startup_boost_enabled`
+  - `boost_ac_min_percent`
+  - `boost_ac_max_percent`
+  - `balanced_ac_min_percent`
+  - `balanced_ac_max_percent`
 
 ## Commands
 
@@ -101,14 +104,26 @@ Remove startup:
 - GPU `low` maps to mode `0`
 - GPU `balanced` / `medium` maps to mode `1`
 - GPU `high` maps to mode `2`
-- default CPU auto triggers are:
-  - `CPU average >= 80% for 20s`
-  - `top-2 logical cores average >= 80% for 6s`
-  - `hottest logical core average >= 85% for 5s`
-- default CPU thermal override is:
-  - force balanced if `CPU temp avg >= 95C for 10s`
-  - hold boost-off until `CPU temp <= 91C`
-- default CPU off guard is:
-  - `CPU average <= 35%` and `top-2 logical cores average <= 45%` over the `60s` off window
-- the tray app persists the selected mode back into the config file
+- default Windows AC processor policy targets are:
+  - boost on: `min=50`, `max=95`
+  - boost off: `min=5`, `max=95`
+- startup forces `Boost Off` by default through `startup_boost_enabled = false`
+- the tray app persists its config and now always normalizes to manual two-state behavior on startup
+- the tray app now also manages Windows AC processor state on transitions by calling `powercfg`
+- legacy auto/thermal tuning keys may still remain in `cpu-boost-tray-config.json` for backward compatibility, but the live tray UI no longer uses them
 - the tray app does not modify fan control behavior
+
+## 2026-04-19 validation notes
+
+- manual on was validated to drive:
+  - Razer modes `cpu=1 gpu=2`
+  - Windows AC processor policy `50/95`
+- manual off was validated to drive:
+  - Razer modes `cpu=1 gpu=1`
+  - Windows AC processor policy `5/95`
+- later live observation under local GitHub Actions / WSL load showed:
+  - `CPU Boost = 1` is the intended steady-state for both tray positions after this redesign
+  - `GPU Boost = 1`
+  - Windows AC processor policy `5/95`
+  - CPU load can still remain high under runner load
+  - temperature should stay materially below the prior `100C+` behavior because AC max is capped at `95`

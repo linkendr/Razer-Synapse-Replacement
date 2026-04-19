@@ -25,6 +25,10 @@ DEFAULT_CONFIG_PATH = PROJECT_DIR / "cpu-boost-tray-config.json"
 CRASH_LOG_PATH = PROJECT_DIR / "cpu-boost-tray-crash.log"
 MUTEX_NAME = r"Global\RazerCpuBoostTray"
 ERROR_ALREADY_EXISTS = 183
+POWERCFG_SCHEME_CURRENT = "SCHEME_CURRENT"
+POWERCFG_SUB_PROCESSOR = "SUB_PROCESSOR"
+POWERCFG_MIN_ALIAS = "PROCTHROTTLEMIN"
+POWERCFG_MAX_ALIAS = "PROCTHROTTLEMAX"
 
 
 clr.AddReference("System.Drawing")
@@ -105,6 +109,12 @@ class FileLogger:
             fh.write(line + "\n")
         if self.verbose:
             print(line)
+
+
+def _validate_processor_percent(name: str, value: int) -> int:
+    if not 0 <= value <= 100:
+        raise CpuBoostTrayError(f"{name} must be between 0 and 100, got {value}")
+    return value
 
 
 class GpuTelemetryReader:
@@ -315,6 +325,7 @@ class TrayConfig:
     vendor_id: int
     product_id: int
     control_mode: str
+    startup_boost_enabled: bool
     auto_refresh_interval_seconds: float
     idle_refresh_interval_seconds: float
     manual_refresh_interval_seconds: float
@@ -323,6 +334,11 @@ class TrayConfig:
     log_interval_seconds: float
     require_ac_power: bool
     disable_on_battery_saver: bool
+    manage_windows_processor_policy: bool
+    boost_ac_min_percent: int
+    boost_ac_max_percent: int
+    balanced_ac_min_percent: int
+    balanced_ac_max_percent: int
     gpu_balanced_mode: int
     gpu_high_mode: int
     fast_on_gpu_3d_percent: float
@@ -361,7 +377,8 @@ class TrayConfig:
         return cls(
             vendor_id=int(data.get("vendor_id", rfc.RAZER_VENDOR_ID)),
             product_id=int(data.get("product_id", rfc.DEFAULT_PRODUCT_ID)),
-            control_mode=str(data.get("control_mode", "auto")).lower(),
+            control_mode="manual",
+            startup_boost_enabled=bool(data.get("startup_boost_enabled", False)),
             auto_refresh_interval_seconds=float(data.get("auto_refresh_interval_seconds", data.get("refresh_interval_seconds", 5.0))),
             idle_refresh_interval_seconds=float(data.get("idle_refresh_interval_seconds", 10.0)),
             manual_refresh_interval_seconds=float(data.get("manual_refresh_interval_seconds", 20.0)),
@@ -370,6 +387,11 @@ class TrayConfig:
             log_interval_seconds=float(data.get("log_interval_seconds", 300.0)),
             require_ac_power=bool(data.get("require_ac_power", True)),
             disable_on_battery_saver=bool(data.get("disable_on_battery_saver", True)),
+            manage_windows_processor_policy=bool(data.get("manage_windows_processor_policy", True)),
+            boost_ac_min_percent=_validate_processor_percent("boost_ac_min_percent", int(data.get("boost_ac_min_percent", 100))),
+            boost_ac_max_percent=_validate_processor_percent("boost_ac_max_percent", int(data.get("boost_ac_max_percent", 100))),
+            balanced_ac_min_percent=_validate_processor_percent("balanced_ac_min_percent", int(data.get("balanced_ac_min_percent", 5))),
+            balanced_ac_max_percent=_validate_processor_percent("balanced_ac_max_percent", int(data.get("balanced_ac_max_percent", 100))),
             gpu_balanced_mode=int(data.get("gpu_balanced_mode", 1)),
             gpu_high_mode=int(data.get("gpu_high_mode", 2)),
             fast_on_gpu_3d_percent=float(data.get("fast_on_gpu_3d_percent", 85.0)),
@@ -398,13 +420,25 @@ class TrayConfig:
             min_off_seconds=float(data.get("min_off_seconds", 45.0)),
             log_path=log_path,
             path=path,
-        )
+        )._validate()
+
+    def _validate(self) -> "TrayConfig":
+        if self.boost_ac_min_percent > self.boost_ac_max_percent:
+            raise CpuBoostTrayError(
+                "boost_ac_min_percent cannot exceed boost_ac_max_percent"
+            )
+        if self.balanced_ac_min_percent > self.balanced_ac_max_percent:
+            raise CpuBoostTrayError(
+                "balanced_ac_min_percent cannot exceed balanced_ac_max_percent"
+            )
+        return self
 
     def save(self) -> None:
         payload = {
             "vendor_id": self.vendor_id,
             "product_id": self.product_id,
-            "control_mode": self.control_mode,
+            "control_mode": "manual",
+            "startup_boost_enabled": self.startup_boost_enabled,
             "auto_refresh_interval_seconds": self.auto_refresh_interval_seconds,
             "idle_refresh_interval_seconds": self.idle_refresh_interval_seconds,
             "manual_refresh_interval_seconds": self.manual_refresh_interval_seconds,
@@ -413,6 +447,11 @@ class TrayConfig:
             "log_interval_seconds": self.log_interval_seconds,
             "require_ac_power": self.require_ac_power,
             "disable_on_battery_saver": self.disable_on_battery_saver,
+            "manage_windows_processor_policy": self.manage_windows_processor_policy,
+            "boost_ac_min_percent": self.boost_ac_min_percent,
+            "boost_ac_max_percent": self.boost_ac_max_percent,
+            "balanced_ac_min_percent": self.balanced_ac_min_percent,
+            "balanced_ac_max_percent": self.balanced_ac_max_percent,
             "gpu_balanced_mode": self.gpu_balanced_mode,
             "gpu_high_mode": self.gpu_high_mode,
             "fast_on_gpu_3d_percent": self.fast_on_gpu_3d_percent,
@@ -449,6 +488,11 @@ class TrayConfig:
             self.idle_refresh_interval_seconds,
             self.manual_refresh_interval_seconds,
         )
+
+    def processor_policy_for(self, enabled: bool) -> tuple[int, int]:
+        if enabled:
+            return self.boost_ac_min_percent, self.boost_ac_max_percent
+        return self.balanced_ac_min_percent, self.balanced_ac_max_percent
 
 
 @dataclass
@@ -516,9 +560,8 @@ class CpuBoostTrayApp:
         self.mode_item.Enabled = False
         self.power_item = ToolStripMenuItem("Power: Unknown")
         self.power_item.Enabled = False
-        self.manual_on_item = ToolStripMenuItem("Manual Boost ON")
-        self.manual_off_item = ToolStripMenuItem("Manual Boost OFF")
-        self.auto_item = ToolStripMenuItem("Auto Mode")
+        self.manual_on_item = ToolStripMenuItem("Boost ON")
+        self.manual_off_item = ToolStripMenuItem("Boost OFF")
         self.exit_item = ToolStripMenuItem("Exit")
 
         self.menu.Items.Add(self.status_item)
@@ -526,14 +569,12 @@ class CpuBoostTrayApp:
         self.menu.Items.Add(self.power_item)
         self.menu.Items.Add(self.manual_on_item)
         self.menu.Items.Add(self.manual_off_item)
-        self.menu.Items.Add(self.auto_item)
         self.menu.Items.Add("-")
         self.menu.Items.Add(self.exit_item)
         self.notify_icon.ContextMenuStrip = self.menu
 
         self.manual_on_item.Click += self.on_manual_on
         self.manual_off_item.Click += self.on_manual_off
-        self.auto_item.Click += self.on_auto_mode
         self.exit_item.Click += self.on_exit
         self.notify_icon.MouseClick += self.on_mouse_click
 
@@ -556,7 +597,7 @@ class CpuBoostTrayApp:
         self._icon_handles.clear()
 
     def icon_text(self) -> str:
-        return "AUTO" if self.state.control_mode == "auto" else "CPU"
+        return "CPU"
 
     def add_rounded_rectangle(self, path: GraphicsPath, x: float, y: float, width: float, height: float, radius: float) -> None:
         diameter = radius * 2.0
@@ -661,7 +702,7 @@ class CpuBoostTrayApp:
 
     def _balanced_state_active_unlocked(self) -> bool:
         return (
-            self.state.current_cpu_boost == 0
+            self.state.current_cpu_boost not in (None, 0)
             and self.state.current_gpu_boost == self.state.config.gpu_balanced_mode
         )
 
@@ -761,13 +802,11 @@ class CpuBoostTrayApp:
             return self._mode_label_for(self.state.control_mode, self.state.current_cpu_boost, self.state.current_gpu_boost)
 
     def _mode_label_for(self, control_mode: str, current_cpu_boost: int | None, current_gpu_boost: int | None) -> str:
-        if control_mode == "auto":
-            return "AUTO"
         if current_cpu_boost not in (None, 0) and current_gpu_boost == self.state.config.gpu_high_mode:
-            return "Manual On"
-        if current_cpu_boost == 0 and current_gpu_boost == self.state.config.gpu_balanced_mode:
-            return "Manual Off"
-        return "Manual"
+            return "Boost On"
+        if current_cpu_boost not in (None, 0) and current_gpu_boost == self.state.config.gpu_balanced_mode:
+            return "Boost Off"
+        return "Transition"
 
     def request_visual_update(self) -> None:
         try:
@@ -794,26 +833,27 @@ class CpuBoostTrayApp:
         status = f"CPU:{self._cpu_boost_label_for(current_cpu_boost)}"
         gpu_text = f"GPU: {self._gpu_mode_label_for(current_gpu_boost)}"
         power_text = f"Power: {self._power_label_for(ac_connected, battery_saver, battery_percent)}"
-        tooltip = f"Boost Mode {'Auto' if control_mode == 'auto' else ('On' if enabled else 'Off')}"
+        tooltip = f"Boost Mode {'On' if enabled else 'Off'}"
         if last_error:
             tooltip = "Boost Mode Error"
-        icon_signature = (enabled, control_mode == "auto", bool(last_error))
+        icon_signature = (enabled, False, bool(last_error))
         menu_signature = (
             status,
             gpu_text,
             power_text,
             tooltip[:63],
-            control_mode == "auto",
+            enabled,
         )
         if icon_signature != self._last_icon_signature:
-            self.notify_icon.Icon = self.create_icon(enabled, control_mode == "auto")
+            self.notify_icon.Icon = self.create_icon(enabled, False)
             self._last_icon_signature = icon_signature
         if menu_signature != self._last_menu_signature:
             self.status_item.Text = status
             self.mode_item.Text = gpu_text
             self.power_item.Text = power_text
             self.notify_icon.Text = tooltip[:63]
-            self.auto_item.Checked = control_mode == "auto"
+            self.manual_on_item.Checked = enabled
+            self.manual_off_item.Checked = not enabled
             self._last_menu_signature = menu_signature
 
     def read_system_power(self) -> tuple[bool, bool, int | None]:
@@ -927,6 +967,46 @@ class CpuBoostTrayApp:
 
         return config.auto_refresh_interval_seconds
 
+    def _run_powercfg(self, *args: str) -> None:
+        completed = subprocess.run(
+            ["powercfg", *args],
+            capture_output=True,
+            text=True,
+            check=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+        if completed.returncode != 0:
+            stderr = completed.stderr.strip()
+            stdout = completed.stdout.strip()
+            detail = stderr or stdout or f"exit code {completed.returncode}"
+            raise CpuBoostTrayError(f"powercfg {' '.join(args)} failed: {detail}")
+
+    def apply_windows_processor_policy(self, enabled: bool) -> None:
+        config = self.state.config
+        if not config.manage_windows_processor_policy:
+            return
+        min_percent, max_percent = config.processor_policy_for(enabled)
+        self._run_powercfg(
+            "/SETACVALUEINDEX",
+            POWERCFG_SCHEME_CURRENT,
+            POWERCFG_SUB_PROCESSOR,
+            POWERCFG_MAX_ALIAS,
+            str(max_percent),
+        )
+        self._run_powercfg(
+            "/SETACVALUEINDEX",
+            POWERCFG_SCHEME_CURRENT,
+            POWERCFG_SUB_PROCESSOR,
+            POWERCFG_MIN_ALIAS,
+            str(min_percent),
+        )
+        self._run_powercfg("/SETACTIVE", POWERCFG_SCHEME_CURRENT)
+        state_label = "boost" if enabled else "balanced"
+        self.state.logger.log(
+            f"Set Windows AC processor policy for {state_label} state to "
+            f"min={min_percent}% max={max_percent}%."
+        )
+
     def write_performance_modes(self, *, cpu_boost: int, gpu_boost: int) -> None:
         with self.io_lock:
             cpu_result, gpu_result = rfc.set_performance_modes(
@@ -951,9 +1031,11 @@ class CpuBoostTrayApp:
         self.request_visual_update()
 
     def apply_performance_state(self, enabled: bool) -> None:
-        cpu_mode = 1 if enabled else 0
+        cpu_mode = 1
         gpu_mode = self.state.config.gpu_high_mode if enabled else self.state.config.gpu_balanced_mode
-        self.write_performance_modes(cpu_boost=cpu_mode, gpu_boost=gpu_mode)
+        with self.io_lock:
+            self.write_performance_modes(cpu_boost=cpu_mode, gpu_boost=gpu_mode)
+            self.apply_windows_processor_policy(enabled)
 
     def manual_set(self, enabled: bool) -> None:
         try:
@@ -963,33 +1045,6 @@ class CpuBoostTrayApp:
             self._set_error(str(exc), log_prefix="Manual performance write failed")
         self.refresh_tick()
         self.request_visual_update()
-
-    def set_auto_mode(self) -> None:
-        try:
-            self.state.set_control_mode("auto", persist=True)
-            self._mixed_state_since_monotonic = None
-            self._clear_error()
-            self.state.logger.log(
-                "Auto mode enabled "
-                f"(require_ac={self.state.config.require_ac_power}, "
-                f"disable_on_battery_saver={self.state.config.disable_on_battery_saver}, "
-                f"fast_gpu>={self.state.config.fast_on_gpu_3d_percent}%/{self.state.config.fast_on_window_seconds}s, "
-                f"gpu>={self.state.config.on_gpu_3d_percent}%/{self.state.config.on_gpu_3d_window_seconds}s, "
-                f"gpu+vram>={self.state.config.on_gpu_3d_with_vram_percent}%+{self.state.config.on_gpu_vram_mb:.0f}MB/"
-                f"{self.state.config.on_gpu_vram_window_seconds}s, "
-                f"cpu_avg>={self.state.config.on_cpu_average_percent}%/{self.state.config.on_cpu_window_seconds}s, "
-                f"cpu_top2>={self.state.config.on_cpu_top2_percent}%/{self.state.config.on_cpu_top2_window_seconds}s, "
-                f"cpu_top1>={self.state.config.fast_on_cpu_top1_percent}%/{self.state.config.fast_on_cpu_top1_window_seconds}s, "
-                f"cpu_hot>={self.state.config.thermal_cpu_hot_c}C/{self.state.config.thermal_cpu_hot_window_seconds}s, "
-                f"cpu_cool<={self.state.config.thermal_cpu_cool_c}C, "
-                f"off_window={self.state.config.off_window_seconds}s, "
-                f"min_on={self.state.config.min_on_seconds}s, "
-                f"min_off={self.state.config.min_off_seconds}s)."
-            )
-            self.refresh_tick()
-        except Exception as exc:
-            self._set_error(str(exc), log_prefix="Failed to enable auto mode")
-            self.request_visual_update()
 
     def _auto_enable_reason(self, now: float) -> str | None:
         avg_gpu_fast = self._window_average(now, self.state.config.fast_on_window_seconds, "gpu_3d_percent")
@@ -1216,15 +1271,7 @@ class CpuBoostTrayApp:
                 self.wake_event.clear()
 
     def toggle(self) -> None:
-        if self.state.control_mode == "auto":
-            self.manual_set(True)
-            return
-
-        if not self.performance_enabled():
-            self.set_auto_mode()
-            return
-
-        self.manual_set(False)
+        self.manual_set(not self.performance_enabled())
 
     def on_mouse_click(self, _sender, event_args) -> None:
         if event_args.Button == MouseButtons.Left:
@@ -1235,9 +1282,6 @@ class CpuBoostTrayApp:
 
     def on_manual_off(self, _sender, _event_args) -> None:
         self.manual_set(False)
-
-    def on_auto_mode(self, _sender, _event_args) -> None:
-        self.set_auto_mode()
 
     def on_exit(self, _sender, _event_args) -> None:
         self.stop_event.set()
@@ -1252,6 +1296,17 @@ class CpuBoostTrayApp:
         self.context.ExitThread()
 
     def run(self) -> int:
+        self.sync_performance_modes(force_log=True)
+        self.state.set_control_mode("manual", persist=True)
+        startup_enabled = self.state.config.startup_boost_enabled
+        state_matches = self.performance_enabled() if startup_enabled else self.balanced_state_active()
+        if not state_matches:
+            self.state.logger.log(
+                f"Applying startup boost state {'on' if startup_enabled else 'off'}."
+            )
+            self.apply_performance_state(startup_enabled)
+        else:
+            self.apply_windows_processor_policy(startup_enabled)
         self.notify_icon.Visible = True
         self.update_visuals()
         self.worker_thread.start()

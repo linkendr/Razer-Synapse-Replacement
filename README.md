@@ -178,32 +178,25 @@ Stop the payload capture and export Razer-only summaries:
 - Fan, boost, and the base CLI control path use direct feature-report traffic and do not depend on Synapse APIs.
 - CPU temperature is read through `LibreHardwareMonitorLib.dll` and a local `PawnIO` installation.
 - The auto fan daemon uses the higher of CPU temperature, GPU hotspot, and GPU core temperature.
-- The CPU boost tray drives both CPU boost and GPU high/balanced mode from the notification area.
+- The CPU boost tray drives a two-state manual profile from the notification area: CPU boost always on, GPU high/balanced mode, and Windows AC processor-state policy.
+- The default processor-state policy targets are:
+  - boost on: AC min/max `50/95`
+  - boost off: AC min/max `5/95`
+- Startup now forces `Boost Off` by default.
 - Tray hardware detection remains poll-based, but tray UI updates are driven by state changes instead of a periodic UI timer.
-- The CPU boost tray now uses adaptive worker intervals:
-  - `5s` in active auto mode
-  - `10s` in clearly idle balanced auto mode
-  - `20s` in manual modes
-- The CPU boost tray also backs off to the slower cadence when battery policy is forcing balanced mode.
-- The CPU boost tray now skips CPU/GPU telemetry entirely in manual mode and while auto mode is power-gated by battery policy.
-- The CPU boost tray now uses a hybrid CPU trigger:
-  - package average for heavy all-core work
-  - top-2 logical-core average for lightly threaded CPU-bound work
-  - hottest-core fast path for bursty CPU pressure
-- The current default CPU hot-core thresholds are tuned toward faster gaming reaction:
-  - `top-2 >= 80% for 6s`
-  - `top-1 >= 85% for 5s`
-- The CPU boost tray now has a CPU thermal override:
-  - force balanced at `>= 95C` sustained
-  - do not re-enter boost until the CPU cools to `<= 91C`
-- The CPU boost tray only does per-core CPU polling in active auto mode.
+- The tray no longer exposes or relies on the older auto/thermal trigger path in normal operation.
 - The CPU boost tray now uses a longer `300s` fallback hardware-state sync and disables periodic telemetry logging by default.
+- The CPU boost tray writes the Windows AC processor policy with `powercfg`; this is config-driven through `manage_windows_processor_policy`, `boost_ac_min_percent`, `boost_ac_max_percent`, `balanced_ac_min_percent`, and `balanced_ac_max_percent`.
+- With the current defaults, boost-off mode is not a hard throttle; it restores AC processor policy `5/95`, so heavy local runner or WSL load can still keep utilization and clocks high.
 - Startup uses hidden scheduled tasks and `pythonw.exe`, so tray and fan startup should be background-only.
+- On this Windows setup, the venv `pythonw.exe` launcher can appear as a parent process for the base Python `pythonw.exe`; that parent/child pair is expected and is not by itself proof of two independent tray instances.
 - If this repo path changes, rerun the `install_*_startup.ps1` and `install_keyboard_white_maintenance.ps1` scripts because the scheduled tasks store absolute paths.
 - Keyboard static-white lighting is now working through the Windows stack and the vendored runtime under `vendor\razer-runtime`.
 - Keyboard brightness is now also applied on that Windows-stack path.
 - Keyboard maintenance now uses a non-disruptive ensure-running task instead of a forced periodic teardown.
 - The keyboard maintenance task is optional; the supported baseline is still the interactive-session `AtLogOn` task plus the resident keyboard daemon.
+- As of `2026-04-19` on `DESKTOP-IHLSOUK`, the live keyboard baseline is the resident `AtLogOn` daemon only; the optional `RazerKeyboardWhiteRefresh` task is not installed.
+- A temporary `300s` blind reapply experiment was tried and reverted the same day; `reapply_interval_seconds = 0` remains the supported default unless a new validation round proves a different cadence is needed.
 - A true one-shot keyboard mode that applies once and exits is not the documented supported steady state for the current Windows-stack path.
 - The USBPcap workflow is now working and has already isolated real Synapse brightness packets for this Blade.
 - newer Windows-side findings now point to additional control-path work beyond raw HID:
