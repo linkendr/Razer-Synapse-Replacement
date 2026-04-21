@@ -149,7 +149,10 @@ def main(argv: list[str] | None = None) -> int:
                 break
             if config.reapply_interval_seconds <= 0:
                 if deadline is None:
-                    time.sleep(3600)
+                    # Hold the Windows lighting session resident without blind periodic
+                    # reapply. The optional maintenance task is responsible for ensuring
+                    # the daemon is still present after logon or unexpected exit.
+                    time.sleep(86400)
                     continue
                 sleep_seconds = max(0.0, deadline - now)
                 if sleep_seconds > 0:

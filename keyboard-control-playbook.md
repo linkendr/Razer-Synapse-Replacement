@@ -230,11 +230,20 @@ Important runtime behavior:
 - `effect_id = 6`
 - `reapply_interval_seconds = 0`
 
-In the final semantics, `reapply_interval_seconds = 0` means:
+In the current supported semantics, `reapply_interval_seconds = 0` means:
 
-- apply once
+- apply at startup
 - avoid frequent visible reinjection loops
-- keep the process alive and only wake on a very low cadence for maintenance
+- keep the process alive to hold ownership
+- do not do blind periodic reapply while the daemon is healthy
+- rely on the optional maintenance task only to ensure the daemon is still running
+
+Operator note from `2026-04-19`:
+
+- the live machine baseline was reconfirmed as the resident daemon only
+- the optional `RazerKeyboardWhiteRefresh` task was not installed on `DESKTOP-IHLSOUK`
+- a temporary `300s` blind reapply experiment was reverted the same day after reconciling the docs and the intended model
+- cold-start AIs should treat short daemon reapply cadences as opt-in experiments, not as the default supported posture
 
 This is different from the old meaning of "apply once and exit."
 

@@ -65,6 +65,11 @@ Hold the Blade keyboard in stable `static white` through the Windows Razer light
   - `6:00 AM`
   - `12:00 PM`
   - `6:00 PM`
+- current machine note as of `2026-04-19`:
+  - on `DESKTOP-IHLSOUK`, this optional maintenance task is currently not installed
+  - the live baseline is the `AtLogOn` resident daemon only
+  - a temporary blind `300s` daemon reapply experiment was tried and reverted the same day
+  - if drift is reported again, do not assume a short daemon cadence is desired; verify the actual keyboard behavior first
 
 ## Supported modes
 
@@ -76,8 +81,10 @@ Hold the Blade keyboard in stable `static white` through the Windows Razer light
   - apply once at startup/logon and then exit with no resident daemon
   - converting the keyboard helper to `AtStartup` / `SYSTEM` without revalidation
 - important semantics:
-  - `reapply_interval_seconds = 0` does not mean "apply once and exit"
-  - for the current Windows-stack path it means "apply once, stay resident, and wake only on a very low maintenance cadence"
+  - keep the daemon resident at logon
+  - hold the Windows lighting session open in the background
+  - `reapply_interval_seconds = 0` means "do not do blind periodic reapply"
+  - the optional maintenance task is the long-cadence ensure-running fallback
 
 ## Files on disk
 
